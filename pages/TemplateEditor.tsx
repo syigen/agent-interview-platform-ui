@@ -14,6 +14,7 @@ export const TemplateEditor: React.FC = () => {
     const { templates, addTemplate, updateTemplate } = useTemplates();
     const [step, setStep] = useState(1);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
     
     // Check if we are in Edit mode
     const isEditMode = !!id;
@@ -49,13 +50,71 @@ export const TemplateEditor: React.FC = () => {
 
     const updateData = (field: keyof Omit<Template, 'id' | 'lastUpdated'>, value: any) => {
         setData(prev => ({ ...prev, [field]: value }));
+        // Clear specific error when user updates field
+        if (errors[field]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[field];
+                return newErrors;
+            });
+        }
     };
 
-    const handleSave = () => {
-        if (!data.name) {
-            alert("Please enter a template name.");
+    const validateStep = (stepIdx: number): boolean => {
+        const newErrors: Record<string, string> = {};
+        let isValid = true;
+
+        if (stepIdx === 1) {
+             if (!data.name?.trim()) {
+                 newErrors.name = "Template name is required.";
+                 isValid = false;
+             }
+             if (data.skills.length === 0) {
+                 newErrors.skills = "At least one skill tag is required.";
+                 isValid = false;
+             }
+        }
+        if (stepIdx === 2) {
+            // If manual, enforce at least one criteria
+            if (data.type === 'manual' && (!data.criteria || data.criteria.length === 0)) {
+                newErrors.criteria = "Please add at least one evaluation criterion.";
+                isValid = false;
+            }
+        }
+
+        setErrors(newErrors);
+        return isValid;
+    }
+
+    const handleTabClick = (targetStep: number) => {
+        if (targetStep === step) return;
+
+        // Always allow going backwards
+        if (targetStep < step) {
+            setStep(targetStep);
             return;
         }
+
+        // Validate strictly from current step up to target-1
+        for (let i = step; i < targetStep; i++) {
+             if (!validateStep(i)) {
+                 if (i !== step) setStep(i);
+                 return;
+             }
+        }
+        setStep(targetStep);
+    }
+
+    const handleNext = () => {
+        if (validateStep(step)) {
+            setStep(s => s + 1);
+        }
+    }
+
+    const handleSave = () => {
+        // Final validation of all steps
+        if (!validateStep(1)) { setStep(1); return; }
+        if (!validateStep(2)) { setStep(2); return; }
 
         if (isEditMode && id) {
             updateTemplate(id, data);
@@ -64,6 +123,14 @@ export const TemplateEditor: React.FC = () => {
         }
         navigate('/templates');
     };
+
+    const handleCancel = () => {
+        const isDirty = data.name || data.description || (data.skills.length > 0 && (data.skills.length > 1 || data.skills[0] !== 'Reasoning'));
+        if (isDirty) {
+            if (!window.confirm("Discard unsaved changes?")) return;
+        }
+        navigate('/templates');
+    }
 
     const generateAICriteria = async () => {
         setIsGenerating(true);
@@ -77,7 +144,8 @@ export const TemplateEditor: React.FC = () => {
                 Skills: ${data.skills.join(', ')}
                 Difficulty: ${data.difficulty}
                 
-                Return the output as a JSON object containing an array of criteria with 'prompt' and 'expected' fields.`,
+                Return the output as a JSON object containing an array of criteria with 'prompt', 'expected', and 'minScore' fields.
+                'minScore' should be an integer between 0 and 100 representing the acceptance threshold percentage (difficulty of passing this specific question).`,
                 config: {
                     responseMimeType: "application/json",
                     responseSchema: {
@@ -89,9 +157,10 @@ export const TemplateEditor: React.FC = () => {
                                     type: Type.OBJECT,
                                     properties: {
                                         prompt: { type: Type.STRING, description: "The specific question or prompt to test the agent." },
-                                        expected: { type: Type.STRING, description: "A summary of the expected correct response or behavior." }
+                                        expected: { type: Type.STRING, description: "A summary of the expected correct response or behavior." },
+                                        minScore: { type: Type.INTEGER, description: "The acceptance threshold percentage (0-100)." }
                                     },
-                                    required: ['prompt', 'expected']
+                                    required: ['prompt', 'expected', 'minScore']
                                 }
                             }
                         },
@@ -106,11 +175,21 @@ export const TemplateEditor: React.FC = () => {
                      const newCriteria = result.criteria.map((c: any) => ({
                          id: Math.random().toString(36).substr(2, 9),
                          prompt: c.prompt,
-                         expected: c.expected
+                         expected: c.expected,
+                         minScore: c.minScore || 75
                      }));
                      updateData('criteria', newCriteria);
                      // Switch to manual to show the generated items
                      updateData('type', 'manual');
+                     
+                     // Clear any criteria errors
+                     if (errors.criteria) {
+                        setErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors.criteria;
+                            return newErrors;
+                        });
+                     }
                  }
             }
         } catch (err) {
@@ -138,6 +217,7 @@ export const TemplateEditor: React.FC = () => {
                     currentStep={step} 
                     totalSteps={3} 
                     steps={['Configuration', 'Criteria', 'Review']} 
+                    onStepClick={handleTabClick}
                 />
 
                 <div className="flex-1 p-8">
@@ -153,6 +233,7 @@ export const TemplateEditor: React.FC = () => {
                                         placeholder="e.g. Senior Python Developer - Agent V3" 
                                         value={data.name}
                                         onChange={e => updateData('name', e.target.value)}
+                                        error={errors.name}
                                     />
                                     <Textarea 
                                         label="Description" 
@@ -201,7 +282,11 @@ export const TemplateEditor: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <SkillSelector skills={data.skills} onChange={s => updateData('skills', s)} />
+                                    <SkillSelector 
+                                        skills={data.skills} 
+                                        onChange={s => updateData('skills', s)} 
+                                        error={errors.skills}
+                                    />
 
                                     <div>
                                         <label className="block text-sm font-medium text-slate-300 mb-1.5">Difficulty Level</label>
@@ -260,7 +345,21 @@ export const TemplateEditor: React.FC = () => {
                                     <p className="text-xs text-slate-500 mt-4">This will generate a static list of questions that you can edit.</p>
                                 </div>
                             ) : (
-                                <CriteriaBuilder criteria={data.criteria || []} onChange={c => updateData('criteria', c)} />
+                                <CriteriaBuilder 
+                                    criteria={data.criteria || []} 
+                                    onChange={c => {
+                                        updateData('criteria', c);
+                                        // Clear validation error if we have items now
+                                        if (c.length > 0 && errors.criteria) {
+                                             setErrors(prev => {
+                                                const newErrors = { ...prev };
+                                                delete newErrors.criteria;
+                                                return newErrors;
+                                            });
+                                        }
+                                    }} 
+                                    error={errors.criteria}
+                                />
                             )}
                          </div>
                     )}
@@ -313,8 +412,13 @@ export const TemplateEditor: React.FC = () => {
                                         {data.criteria && data.criteria.length > 0 ? data.criteria.map((c, i) => (
                                             <div key={c.id} className="p-3 rounded-lg bg-surface-dark border border-surface-border flex gap-3">
                                                 <span className="text-xs font-mono text-slate-500 mt-1">{i + 1}.</span>
-                                                <div>
-                                                    <p className="text-sm text-slate-200">{c.prompt || 'Untitled Prompt'}</p>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <p className="text-sm text-slate-200">{c.prompt || 'Untitled Prompt'}</p>
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ml-4 ${c.minScore >= 80 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : c.minScore >= 60 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                                            {c.minScore}% Threshold
+                                                        </span>
+                                                    </div>
                                                     <p className="text-xs text-slate-500 mt-1 line-clamp-1">{c.expected}</p>
                                                 </div>
                                             </div>
@@ -328,14 +432,14 @@ export const TemplateEditor: React.FC = () => {
 
                 <div className="border-t border-surface-border bg-[#151e2e] p-6 flex justify-between items-center">
                     <button 
-                        onClick={() => step > 1 ? setStep(s => s - 1) : navigate('/templates')}
+                        onClick={() => step > 1 ? setStep(s => s - 1) : handleCancel()}
                         className="px-4 py-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors"
                     >
                         {step === 1 ? 'Cancel' : 'Back'}
                     </button>
                     <div className="flex gap-3">
                          {step < 3 ? (
-                            <Button onClick={() => setStep(s => s + 1)} icon="arrow_forward">Next Step</Button>
+                            <Button onClick={handleNext} icon="arrow_forward">Next Step</Button>
                          ) : (
                             <Button onClick={handleSave} icon="save">{isEditMode ? 'Update' : 'Create'} Template</Button>
                          )}

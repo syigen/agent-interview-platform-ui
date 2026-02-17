@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export const SkillSelector: React.FC<{ skills: string[]; onChange: (skills: string[]) => void }> = ({ skills, onChange }) => {
+export const SkillSelector: React.FC<{ skills: string[]; onChange: (skills: string[]) => void; error?: string }> = ({ skills, onChange, error }) => {
     const [input, setInput] = useState('');
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -20,7 +20,7 @@ export const SkillSelector: React.FC<{ skills: string[]; onChange: (skills: stri
     return (
         <div>
             <label className="block text-sm font-medium text-slate-300 mb-1.5">Required Skills (Press Enter to add)</label>
-            <div className="w-full rounded-lg bg-background-dark border border-surface-border p-2 flex flex-wrap gap-2 min-h-[50px] focus-within:ring-2 focus-within:ring-primary focus-within:border-primary">
+            <div className={`w-full rounded-lg bg-background-dark border ${error ? 'border-red-500' : 'border-surface-border'} p-2 flex flex-wrap gap-2 min-h-[50px] focus-within:ring-2 ${error ? 'focus-within:ring-red-500' : 'focus-within:ring-primary focus-within:border-primary'}`}>
                 {skills.map(skill => (
                     <span key={skill} className="bg-primary/20 text-primary text-xs font-semibold px-2 py-1 rounded flex items-center gap-1 border border-primary/30 animate-fade-in-up">
                         {skill} 
@@ -35,6 +35,7 @@ export const SkillSelector: React.FC<{ skills: string[]; onChange: (skills: stri
                     onKeyDown={handleKeyDown}
                 />
             </div>
+            {error && <p className="mt-1 text-xs text-red-400 font-medium animate-fade-in-up">{error}</p>}
         </div>
     );
 };

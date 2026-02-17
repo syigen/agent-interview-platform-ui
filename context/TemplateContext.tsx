@@ -30,7 +30,7 @@ const defaultTemplates: Template[] = [
         difficulty: 'Medium',
         lastUpdated: 'Oct 24, 2023',
         criteria: [
-            { id: 'c1', prompt: 'A customer is angry about a late delivery. How do you respond?', expected: 'Apologize, check status, offer compensation if applicable.' }
+            { id: 'c1', prompt: 'A customer is angry about a late delivery. How do you respond?', expected: 'Apologize, check status, offer compensation if applicable.', minScore: 85 }
         ]
     },
     {
@@ -52,7 +52,7 @@ const defaultTemplates: Template[] = [
         difficulty: 'Easy',
         lastUpdated: 'Oct 15, 2023',
         criteria: [
-            { id: 'c2', prompt: 'Write a haiku about a crashing server.', expected: 'Must follow 5-7-5 structure and relate to tech.' }
+            { id: 'c2', prompt: 'Write a haiku about a crashing server.', expected: 'Must follow 5-7-5 structure and relate to tech.', minScore: 90 }
         ]
     },
     {
@@ -64,7 +64,7 @@ const defaultTemplates: Template[] = [
         difficulty: 'Hard',
         lastUpdated: 'Nov 01, 2023',
         criteria: [
-            { id: 'c3', prompt: 'Explain how you would optimize a large data grid component.', expected: 'Virtualization, memoization, proper key usage.' }
+            { id: 'c3', prompt: 'Explain how you would optimize a large data grid component.', expected: 'Virtualization, memoization, proper key usage.', minScore: 80 }
         ]
     },
     {

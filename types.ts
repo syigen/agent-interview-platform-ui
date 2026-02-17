@@ -11,6 +11,7 @@ export interface Criterion {
     id: string;
     prompt: string;
     expected: string;
+    minScore: number;
 }
 
 export interface Template {
