@@ -1,43 +1,168 @@
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, Button, Input, Badge } from '../components/ui/Common';
-import { Run } from '../types';
+import { Run, ChatStep } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
-import { useAppSelector } from '../store/hooks';
-
-const dummyRuns: Run[] = [
-  { id: 'RUN-3920', agentId: 'AGT-774', agentName: 'Support-Genius-v2', timestamp: 'Just now', status: 'running' },
-  { id: 'RUN-3919', agentId: 'AGT-882', agentName: 'Market-Analyst-Pro', timestamp: '12 mins ago', status: 'pass', score: 94 },
-  { id: 'RUN-3918', agentId: 'AGT-104', agentName: 'Code-Refactor-Bot', timestamp: '45 mins ago', status: 'fail', score: 62 },
-  { id: 'RUN-3917', agentId: 'AGT-774', agentName: 'Support-Genius-v2', timestamp: '2 hours ago', status: 'pass', score: 88 },
-  { id: 'RUN-3916', agentId: 'AGT-991', agentName: 'Legal-Doc-Reviewer', timestamp: '5 hours ago', status: 'pass', score: 91 },
-  { id: 'RUN-3915', agentId: 'AGT-332', agentName: 'Translation-Matrix-X', timestamp: '1 day ago', status: 'pass', score: 97 },
-  { id: 'RUN-3914', agentId: 'AGT-882', agentName: 'Market-Analyst-Pro', timestamp: '1 day ago', status: 'fail', score: 45 },
-  { id: 'RUN-3913', agentId: 'AGT-104', agentName: 'Code-Refactor-Bot', timestamp: '2 days ago', status: 'pass', score: 85 },
-  { id: 'RUN-3912', agentId: 'AGT-551', agentName: 'Ethical-Constraint-v1', timestamp: '3 days ago', status: 'pass', score: 100 },
-  { id: 'RUN-3911', agentId: 'AGT-003', agentName: 'Chaos-Monkey-Agent', timestamp: '4 days ago', status: 'fail', score: 12 },
-];
+import { RunSimulationModal } from '../components/RunSimulationModal';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { addRun, updateRunStatus } from '../store/slices/runSlice';
+import { geminiService } from '../services/GeminiService';
 
 export const AgentRuns: React.FC = () => {
     const navigate = useNavigate();
+    const dispatch = useAppDispatch();
+    const runs = useAppSelector((state) => state.runs.items);
     const templates = useAppSelector((state) => state.templates.items);
+    
     const [showGenerator, setShowGenerator] = useState(false);
+    const [showSimulationModal, setShowSimulationModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedRun, setSelectedRun] = useState<Run | null>(null);
+    const [viewingRunId, setViewingRunId] = useState<string | null>(null);
 
-    const filteredRuns = dummyRuns.filter(run => 
+    const filteredRuns = runs.filter(run => 
         run.agentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         run.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         run.agentId.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Filter out drafts for the generator dropdown
+    const viewingRun = runs.find(r => r.id === viewingRunId) || null;
     const availableTemplates = templates.filter(t => t.status !== 'draft');
+
+    const handleStartSimulation = async (templateId: string) => {
+        const selectedTemplate = templates.find(t => t.id === templateId);
+        if (!selectedTemplate) return;
+
+        const runId = `RUN-${Math.floor(Math.random() * 9000) + 1000}`;
+        const agentName = `Simulated-Agent-${selectedTemplate.id.split('-')[1]}`;
+        const totalSteps = selectedTemplate.criteria ? selectedTemplate.criteria.length : 0;
+        
+        dispatch(addRun({
+            id: runId,
+            agentId: 'SIM-AGENT-01',
+            agentName: agentName,
+            timestamp: 'Just now',
+            status: 'running',
+            steps: [],
+            totalSteps: totalSteps
+        }));
+
+        setViewingRunId(runId);
+        
+        const chatSteps: ChatStep[] = [];
+        chatSteps.push({
+            id: 'init',
+            role: 'system',
+            content: `Simulation started for template: ${selectedTemplate.name}`,
+            timestamp: new Date().toLocaleTimeString(),
+            status: 'info'
+        });
+        dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
+
+        let earnedScore = 0;
+        let potentialScore = 0;
+
+        try {
+            if (selectedTemplate.criteria) {
+                for (let i = 0; i < totalSteps; i++) {
+                    const criterion = selectedTemplate.criteria[i];
+                    
+                    await new Promise(r => setTimeout(r, 1000));
+                    const questionStep: ChatStep = {
+                        id: `q-${i}`,
+                        role: 'interviewer',
+                        content: criterion.prompt,
+                        timestamp: new Date().toLocaleTimeString(),
+                        status: 'info'
+                    };
+                    chatSteps.push(questionStep);
+                    dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
+
+                    await new Promise(r => setTimeout(r, 2000));
+                    const agentAnswer = await geminiService.simulateAgentResponse(
+                        {
+                            skills: selectedTemplate.skills,
+                            description: selectedTemplate.description || ''
+                        },
+                        criterion.prompt
+                    );
+                    
+                    const answerStep: ChatStep = {
+                        id: `a-${i}`,
+                        role: 'agent',
+                        content: agentAnswer,
+                        timestamp: new Date().toLocaleTimeString(),
+                        status: 'info',
+                        metadata: { 'model': 'gemini-3-flash-preview' }
+                    };
+                    chatSteps.push(answerStep);
+                    dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
+
+                    await new Promise(r => setTimeout(r, 1200));
+                    const gradeResult = await geminiService.evaluateResponse(
+                        criterion.prompt,
+                        criterion.expected,
+                        agentAnswer
+                    );
+
+                    earnedScore += gradeResult.score;
+                    potentialScore += 100;
+
+                    const gradeStep: ChatStep = {
+                        id: `g-${i}`,
+                        role: 'system',
+                        content: gradeResult.reasoning,
+                        timestamp: new Date().toLocaleTimeString(),
+                        status: gradeResult.score >= criterion.minScore ? 'pass' : 'fail',
+                        score: gradeResult.score,
+                        category: selectedTemplate.skills[0] || 'General',
+                        isHumanGraded: false,
+                        gradingHistory: [{
+                            source: 'ai',
+                            score: gradeResult.score,
+                            reasoning: gradeResult.reasoning,
+                            timestamp: new Date().toLocaleTimeString()
+                        }]
+                    };
+                    chatSteps.push(gradeStep);
+                    dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
+                }
+            }
+
+            await new Promise(r => setTimeout(r, 800));
+            const finalAvg = potentialScore > 0 ? Math.round(earnedScore / (totalSteps)) : 0;
+            const finalStatus = finalAvg >= 70 ? 'pass' : 'fail';
+            
+            chatSteps.push({
+                id: 'end',
+                role: 'system',
+                content: `Evaluation Complete. Final Score: ${finalAvg}/100`,
+                timestamp: new Date().toLocaleTimeString(),
+                status: finalStatus
+            });
+
+            dispatch(updateRunStatus({ 
+                id: runId, 
+                status: finalStatus, 
+                score: finalAvg,
+                steps: [...chatSteps]
+            }));
+
+        } catch (error) {
+            console.error("Simulation failed", error);
+            chatSteps.push({ id: 'err', role: 'system', content: 'Simulation Error occurred.', timestamp: 'now', status: 'fail' });
+            dispatch(updateRunStatus({ id: runId, status: 'fail', steps: [...chatSteps] }));
+        }
+    };
 
     return (
         <Layout>
-            <RunDetailsPanel run={selectedRun} onClose={() => setSelectedRun(null)} />
+            <RunDetailsPanel run={viewingRun} onClose={() => setViewingRunId(null)} />
+            <RunSimulationModal 
+                isOpen={showSimulationModal} 
+                onClose={() => setShowSimulationModal(false)}
+                onStart={handleStartSimulation}
+            />
 
             <div className="p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
                  <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
@@ -45,14 +170,19 @@ export const AgentRuns: React.FC = () => {
                         <h1 className="text-3xl font-black text-white">Agent Runs & Results</h1>
                         <p className="text-slate-400">Comprehensive audit log of all agent evaluation attempts.</p>
                      </div>
-                     <Button icon="bolt" onClick={() => setShowGenerator(!showGenerator)}>
-                        {showGenerator ? 'Close Generator' : 'Generate Access Prompt'}
-                     </Button>
+                     <div className="flex gap-3">
+                         <Button variant="secondary" icon="smart_toy" onClick={() => setShowSimulationModal(true)}>
+                            Run Simulation
+                         </Button>
+                         <Button icon="bolt" onClick={() => setShowGenerator(!showGenerator)}>
+                            {showGenerator ? 'Close Generator' : 'Generate Access Prompt'}
+                         </Button>
+                     </div>
                 </div>
 
+                {/* Generator Section - Preserved from previous */}
                 {showGenerator && (
                     <div className="bg-surface-dark border border-surface-border rounded-2xl p-8 shadow-xl animate-fade-in-up flex flex-col lg:flex-row gap-8">
-                        {/* Generator Content */}
                         <div className="flex-1 flex flex-col gap-6">
                             <h2 className="text-xl font-bold text-white">Generate Access Prompt</h2>
                             <div className="flex flex-col gap-4">
@@ -135,7 +265,7 @@ export const AgentRuns: React.FC = () => {
                                         <tr 
                                             key={run.id} 
                                             className="group hover:bg-surface-hover transition-colors cursor-pointer"
-                                            onClick={() => setSelectedRun(run)}
+                                            onClick={() => setViewingRunId(run.id)}
                                         >
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
@@ -190,13 +320,10 @@ export const AgentRuns: React.FC = () => {
                                                         title="View Report"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            setSelectedRun(run);
+                                                            setViewingRunId(run.id);
                                                         }}
                                                     >
                                                         <span className="material-symbols-outlined text-[20px]">description</span>
-                                                    </button>
-                                                    <button className="text-slate-500 hover:text-primary transition-colors p-2 rounded hover:bg-primary/10" title="Rerun">
-                                                        <span className="material-symbols-outlined text-[20px]">replay</span>
                                                     </button>
                                                 </div>
                                             </td>

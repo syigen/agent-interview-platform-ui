@@ -1,9 +1,17 @@
+
 export interface Metric {
     label: string;
     value: string;
     change: string;
     trend: 'up' | 'down';
     icon: string;
+}
+
+export interface GradeEntry {
+    source: 'ai' | 'human';
+    score: number;
+    reasoning?: string;
+    timestamp: string;
 }
 
 export interface ChatStep {
@@ -17,6 +25,7 @@ export interface ChatStep {
     category?: string;
     isHumanGraded?: boolean;
     humanNote?: string;
+    gradingHistory?: GradeEntry[];
 }
 
 export interface Run {
@@ -27,6 +36,8 @@ export interface Run {
   status: 'pass' | 'fail' | 'in_progress' | 'running';
   score?: number;
   steps?: ChatStep[];
+  totalSteps?: number;
+  isCertified?: boolean;
 }
 
 export interface Criterion {

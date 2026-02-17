@@ -4,7 +4,7 @@ import { Button, Input, Textarea, Card } from '../components/ui/Common';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { addTemplate, updateTemplate } from '../store/slices/templateSlice';
 import { Template } from '../types';
-import { GoogleGenAI, Type } from "@google/genai";
+import { geminiService } from '../services/GeminiService';
 import { StepIndicator } from '../components/templates/StepIndicator';
 import { SkillSelector } from '../components/templates/SkillSelector';
 import { CriteriaBuilder } from '../components/templates/CriteriaBuilder';
@@ -158,61 +158,31 @@ export const TemplateEditor: React.FC = () => {
     const generateAICriteria = async () => {
         setIsGenerating(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: `Generate 5 detailed evaluation criteria (interview questions) for an AI agent with the following profile:
-                Name: ${data.name}
-                Description: ${data.description}
-                Skills: ${data.skills.join(', ')}
-                Difficulty: ${data.difficulty}
-                
-                Return the output as a JSON object containing an array of criteria with 'prompt', 'expected', and 'minScore' fields.
-                'minScore' should be an integer between 0 and 100 representing the acceptance threshold percentage (difficulty of passing this specific question).`,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            criteria: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        prompt: { type: Type.STRING, description: "The specific question or prompt to test the agent." },
-                                        expected: { type: Type.STRING, description: "A summary of the expected correct response or behavior." },
-                                        minScore: { type: Type.INTEGER, description: "The acceptance threshold percentage (0-100)." }
-                                    },
-                                    required: ['prompt', 'expected', 'minScore']
-                                }
-                            }
-                        },
-                        required: ['criteria']
-                    }
-                }
+            const criteria = await geminiService.generateCriteria({
+                name: data.name,
+                description: data.description || '',
+                skills: data.skills,
+                difficulty: data.difficulty
             });
             
-            if (response.text) {
-                 const result = JSON.parse(response.text);
-                 if (result.criteria && Array.isArray(result.criteria)) {
-                     const newCriteria = result.criteria.map((c: any) => ({
-                         id: Math.random().toString(36).substr(2, 9),
-                         prompt: c.prompt,
-                         expected: c.expected,
-                         minScore: c.minScore || 75
-                     }));
-                     updateData('criteria', newCriteria);
-                     // Switch to manual to show the generated items
-                     updateData('type', 'manual');
-                     
-                     // Clear any criteria errors
-                     if (errors.criteria) {
-                        setErrors(prev => {
-                            const newErrors = { ...prev };
-                            delete newErrors.criteria;
-                            return newErrors;
-                        });
-                     }
+            if (criteria && Array.isArray(criteria)) {
+                 const newCriteria = criteria.map((c: any) => ({
+                     id: Math.random().toString(36).substr(2, 9),
+                     prompt: c.prompt,
+                     expected: c.expected,
+                     minScore: c.minScore || 75
+                 }));
+                 updateData('criteria', newCriteria);
+                 // Switch to manual to show the generated items
+                 updateData('type', 'manual');
+                 
+                 // Clear any criteria errors
+                 if (errors.criteria) {
+                    setErrors(prev => {
+                        const newErrors = { ...prev };
+                        delete newErrors.criteria;
+                        return newErrors;
+                    });
                  }
             }
         } catch (err) {

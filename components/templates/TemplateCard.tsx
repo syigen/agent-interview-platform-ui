@@ -1,13 +1,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Template } from '../../types';
+import { Button } from '../ui/Common';
 
 export const TemplateCard: React.FC<{ 
     template: Template; 
     onDelete: (id: string) => void; 
     onDuplicate: (id: string) => void;
     onStatusChange: (id: string, status: 'draft' | 'private' | 'public') => void;
-}> = ({ template, onDelete, onDuplicate, onStatusChange }) => {
+    onSimulate: (id: string) => void;
+}> = ({ template, onDelete, onDuplicate, onStatusChange, onSimulate }) => {
     const navigate = useNavigate();
     
     const statusColors = {
@@ -63,7 +65,18 @@ export const TemplateCard: React.FC<{
             </td>
             <td className="px-6 py-4 text-slate-400">{template.lastUpdated}</td>
             <td className="px-6 py-4 text-right relative">
-                 <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
+                 <div className="flex justify-end gap-2 items-center">
+                    {/* Run Button */}
+                    <button 
+                        onClick={() => onSimulate(template.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-all px-3 py-1.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white text-xs font-bold flex items-center gap-1"
+                    >
+                        <span className="material-symbols-outlined text-[14px]">play_arrow</span>
+                        Run
+                    </button>
+
+                    <div className="w-px h-4 bg-surface-border mx-1"></div>
+
                     <button 
                         className="text-slate-400 hover:text-white p-1" 
                         title="Duplicate"
