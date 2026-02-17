@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Button, Input, Textarea, Card } from '../components/ui/Common';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { addTemplate, updateTemplate } from '../store/slices/templateSlice';
+import { createTemplate, updateTemplate } from '../store/slices/templateSlice';
 import { Template } from '../types';
 import { geminiService } from '../services/GeminiService';
 import { StepIndicator } from '../components/templates/StepIndicator';
@@ -14,14 +14,14 @@ export const TemplateEditor: React.FC = () => {
     const { id } = useParams();
     const dispatch = useAppDispatch();
     const templates = useAppSelector((state) => state.templates.items);
-    
+
     const [step, setStep] = useState(1);
     const [isGenerating, setIsGenerating] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
-    
+
     // Check if we are in Edit mode
     const isEditMode = !!id;
-    
+
     const [data, setData] = useState<Omit<Template, 'id' | 'lastUpdated'>>({
         name: '',
         description: '',
@@ -70,14 +70,14 @@ export const TemplateEditor: React.FC = () => {
         let isValid = true;
 
         if (stepIdx === 1) {
-             if (!data.name?.trim()) {
-                 newErrors.name = "Template name is required.";
-                 isValid = false;
-             }
-             if (data.skills.length === 0) {
-                 newErrors.skills = "At least one skill tag is required.";
-                 isValid = false;
-             }
+            if (!data.name?.trim()) {
+                newErrors.name = "Template name is required.";
+                isValid = false;
+            }
+            if (data.skills.length === 0) {
+                newErrors.skills = "At least one skill tag is required.";
+                isValid = false;
+            }
         }
         if (stepIdx === 2) {
             // If manual, enforce at least one criteria
@@ -110,15 +110,15 @@ export const TemplateEditor: React.FC = () => {
 
         // Validate strictly from current step up to target-1
         for (let i = step; i < targetStep; i++) {
-             if (!validateStep(i)) {
-                 if (i !== step) setStep(i);
-                 return;
-             }
+            if (!validateStep(i)) {
+                if (i !== step) setStep(i);
+                return;
+            }
         }
 
         // Auto-promote logic when jumping to review if currently draft
         if (targetStep === 3 && data.status === 'draft') {
-             setData(prev => ({ ...prev, status: 'private' }));
+            setData(prev => ({ ...prev, status: 'private' }));
         }
 
         setStep(targetStep);
@@ -134,17 +134,22 @@ export const TemplateEditor: React.FC = () => {
         }
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
         // Final validation of all steps
         if (!validateStep(1)) { setStep(1); return; }
         if (!validateStep(2)) { setStep(2); return; }
 
-        if (isEditMode && id) {
-            dispatch(updateTemplate({ id, changes: data }));
-        } else {
-            dispatch(addTemplate(data));
+        try {
+            if (isEditMode && id) {
+                await dispatch(updateTemplate({ id, data })).unwrap();
+            } else {
+                await dispatch(createTemplate(data)).unwrap();
+            }
+            navigate('/templates');
+        } catch (err) {
+            console.error("Failed to save template", err);
+            alert("Failed to save template. Please try again.");
         }
-        navigate('/templates');
     };
 
     const handleCancel = () => {
@@ -164,26 +169,26 @@ export const TemplateEditor: React.FC = () => {
                 skills: data.skills,
                 difficulty: data.difficulty
             });
-            
+
             if (criteria && Array.isArray(criteria)) {
-                 const newCriteria = criteria.map((c: any) => ({
-                     id: Math.random().toString(36).substr(2, 9),
-                     prompt: c.prompt,
-                     expected: c.expected,
-                     minScore: c.minScore || 75
-                 }));
-                 updateData('criteria', newCriteria);
-                 // Switch to manual to show the generated items
-                 updateData('type', 'manual');
-                 
-                 // Clear any criteria errors
-                 if (errors.criteria) {
+                const newCriteria = criteria.map((c: any) => ({
+                    id: Math.random().toString(36).substr(2, 9),
+                    prompt: c.prompt,
+                    expected: c.expected,
+                    minScore: c.minScore || 75
+                }));
+                updateData('criteria', newCriteria);
+                // Switch to manual to show the generated items
+                updateData('type', 'manual');
+
+                // Clear any criteria errors
+                if (errors.criteria) {
                     setErrors(prev => {
                         const newErrors = { ...prev };
                         delete newErrors.criteria;
                         return newErrors;
                     });
-                 }
+                }
             }
         } catch (err) {
             console.error("AI Generation failed", err);
@@ -195,7 +200,7 @@ export const TemplateEditor: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center py-12 px-4 animate-fade-in-up">
-             <div className="w-full max-w-[800px] mb-8">
+            <div className="w-full max-w-[800px] mb-8">
                 <Link to="/templates" className="inline-flex items-center text-slate-500 hover:text-white mb-4 transition-colors">
                     <span className="material-symbols-outlined text-lg mr-1">arrow_back</span> Back to Templates
                 </Link>
@@ -206,10 +211,10 @@ export const TemplateEditor: React.FC = () => {
             </div>
 
             <Card className="w-full max-w-[800px] overflow-hidden flex flex-col min-h-[600px]">
-                <StepIndicator 
-                    currentStep={step} 
-                    totalSteps={3} 
-                    steps={['Configuration', 'Criteria', 'Review']} 
+                <StepIndicator
+                    currentStep={step}
+                    totalSteps={3}
+                    steps={['Configuration', 'Criteria', 'Review']}
                     onStepClick={handleTabClick}
                 />
 
@@ -221,15 +226,15 @@ export const TemplateEditor: React.FC = () => {
                                     <span className="material-symbols-outlined text-primary">badge</span> Identity
                                 </h3>
                                 <div className="ml-8 space-y-4">
-                                    <Input 
-                                        label="Template Name" 
-                                        placeholder="e.g. Senior Python Developer - Agent V3" 
+                                    <Input
+                                        label="Template Name"
+                                        placeholder="e.g. Senior Python Developer - Agent V3"
                                         value={data.name}
                                         onChange={e => updateData('name', e.target.value)}
                                         error={errors.name}
                                     />
-                                    <Textarea 
-                                        label="Description" 
+                                    <Textarea
+                                        label="Description"
                                         placeholder="Describe the purpose of this evaluation template..."
                                         value={data.description}
                                         onChange={e => updateData('description', e.target.value)}
@@ -246,7 +251,7 @@ export const TemplateEditor: React.FC = () => {
                                     <div>
                                         <label className="block text-sm font-medium text-slate-300 mb-2">Construction Method</label>
                                         <div className="grid md:grid-cols-2 gap-4">
-                                            <div 
+                                            <div
                                                 onClick={() => updateData('type', 'auto')}
                                                 className={`p-4 rounded-lg border cursor-pointer transition-all ${data.type === 'auto' ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-surface-border bg-background-dark hover:bg-surface-border'}`}
                                             >
@@ -259,7 +264,7 @@ export const TemplateEditor: React.FC = () => {
                                                 <p className="font-semibold text-white">AI-Generated</p>
                                                 <p className="text-xs text-slate-400 mt-1">Automatically generate questions based on skill tags.</p>
                                             </div>
-                                            <div 
+                                            <div
                                                 onClick={() => updateData('type', 'manual')}
                                                 className={`p-4 rounded-lg border cursor-pointer transition-all ${data.type === 'manual' ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-surface-border bg-background-dark hover:bg-surface-border'}`}
                                             >
@@ -275,9 +280,9 @@ export const TemplateEditor: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <SkillSelector 
-                                        skills={data.skills} 
-                                        onChange={s => updateData('skills', s)} 
+                                    <SkillSelector
+                                        skills={data.skills}
+                                        onChange={s => updateData('skills', s)}
                                         error={errors.skills}
                                     />
 
@@ -285,8 +290,8 @@ export const TemplateEditor: React.FC = () => {
                                         <label className="block text-sm font-medium text-slate-300 mb-1.5">Difficulty Level</label>
                                         <div className="flex bg-background-dark p-1 rounded-lg border border-surface-border">
                                             {['Easy', 'Medium', 'Hard'].map((d) => (
-                                                <button 
-                                                    key={d} 
+                                                <button
+                                                    key={d}
                                                     onClick={() => updateData('difficulty', d)}
                                                     className={`flex-1 text-center py-2 text-sm font-medium rounded transition-all ${data.difficulty === d ? 'bg-surface-border text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
                                                 >
@@ -301,7 +306,7 @@ export const TemplateEditor: React.FC = () => {
                     )}
 
                     {step === 2 && (
-                         <div className="animate-fade-in-up">
+                        <div className="animate-fade-in-up">
                             {data.type === 'auto' ? (
                                 <div className="text-center py-16">
                                     <div className="inline-flex items-center justify-center p-4 rounded-full bg-primary/10 text-primary mb-4 animate-pulse">
@@ -309,7 +314,7 @@ export const TemplateEditor: React.FC = () => {
                                     </div>
                                     <h3 className="text-xl font-bold text-white mb-2">AI Generation Enabled</h3>
                                     <p className="text-slate-400 max-w-md mx-auto mb-6">Based on the skills <strong>{data.skills.join(', ')}</strong>, the system will dynamically generate evaluation questions.</p>
-                                    
+
                                     <div className="bg-surface-dark p-4 rounded-lg border border-surface-border max-w-sm mx-auto text-left relative overflow-hidden">
                                         {isGenerating && (
                                             <div className="absolute inset-0 bg-surface-dark/95 flex flex-col items-center justify-center z-10 backdrop-blur-sm">
@@ -326,24 +331,24 @@ export const TemplateEditor: React.FC = () => {
                                     </div>
 
                                     <div className="mt-8 flex justify-center gap-4">
-                                         <Button 
-                                            onClick={generateAICriteria} 
+                                        <Button
+                                            onClick={generateAICriteria}
                                             disabled={isGenerating}
                                             icon={isGenerating ? undefined : "auto_awesome"}
                                             className={isGenerating ? "opacity-80" : ""}
-                                         >
+                                        >
                                             {isGenerating ? 'Designing Protocol...' : 'Generate Criteria Now'}
-                                         </Button>
+                                        </Button>
                                     </div>
                                     <p className="text-xs text-slate-500 mt-4">This will generate a static list of questions that you can edit.</p>
                                 </div>
                             ) : (
-                                <CriteriaBuilder 
-                                    criteria={data.criteria || []} 
+                                <CriteriaBuilder
+                                    criteria={data.criteria || []}
                                     onChange={c => {
                                         // Update state directly to bypass automatic error clearing for complex validation
                                         setData(prev => ({ ...prev, criteria: c }));
-                                        
+
                                         // Manually handle error clearing: ONLY clear if all items are valid and at least one exists
                                         if (errors.criteria) {
                                             const incomplete = c.some(item => !item.prompt?.trim() || !item.expected?.trim());
@@ -355,11 +360,11 @@ export const TemplateEditor: React.FC = () => {
                                                 });
                                             }
                                         }
-                                    }} 
+                                    }}
                                     error={errors.criteria}
                                 />
                             )}
-                         </div>
+                        </div>
                     )}
 
                     {step === 3 && (
@@ -402,7 +407,7 @@ export const TemplateEditor: React.FC = () => {
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Publication Status</label>
                                 <div className="flex bg-background-dark p-1 rounded-lg border border-surface-border w-full max-w-md">
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => updateData('status', 'private')}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded transition-all ${data.status === 'private' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-sm' : 'text-slate-400 hover:text-white'}`}
@@ -410,7 +415,7 @@ export const TemplateEditor: React.FC = () => {
                                         <span className="material-symbols-outlined text-[18px]">lock</span>
                                         Private
                                     </button>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => updateData('status', 'public')}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded transition-all ${data.status === 'public' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-slate-400 hover:text-white'}`}
@@ -418,7 +423,7 @@ export const TemplateEditor: React.FC = () => {
                                         <span className="material-symbols-outlined text-[18px]">public</span>
                                         Public
                                     </button>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => updateData('status', 'draft')}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded transition-all ${data.status === 'draft' ? 'bg-slate-700/50 text-slate-300 border border-slate-600 shadow-sm' : 'text-slate-400 hover:text-white'}`}
@@ -433,7 +438,7 @@ export const TemplateEditor: React.FC = () => {
                                     {data.status === 'draft' && "Work in progress. Not available for execution runs."}
                                 </p>
                             </div>
-                            
+
                             <div className="h-px bg-surface-border w-full"></div>
 
                             <div>
@@ -464,18 +469,18 @@ export const TemplateEditor: React.FC = () => {
                 </div>
 
                 <div className="border-t border-surface-border bg-[#151e2e] p-6 flex justify-between items-center">
-                    <button 
+                    <button
                         onClick={() => step > 1 ? setStep(s => s - 1) : handleCancel()}
                         className="px-4 py-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors"
                     >
                         {step === 1 ? 'Cancel' : 'Back'}
                     </button>
                     <div className="flex gap-3">
-                         {step < 3 ? (
+                        {step < 3 ? (
                             <Button onClick={handleNext} icon="arrow_forward">Next Step</Button>
-                         ) : (
+                        ) : (
                             <Button onClick={handleSave} icon="save">{isEditMode ? 'Update' : 'Create'} Template</Button>
-                         )}
+                        )}
                     </div>
                 </div>
             </Card>

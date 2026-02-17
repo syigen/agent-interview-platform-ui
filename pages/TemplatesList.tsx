@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Input, Card } from '../components/ui/Common';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { deleteTemplate, duplicateTemplate, updateTemplate } from '../store/slices/templateSlice';
+import { fetchTemplates, deleteTemplate, duplicateTemplate, updateTemplate } from '../store/slices/templateSlice';
 import { addRun, updateRunStatus } from '../store/slices/runSlice';
 import { TemplateCard } from '../components/templates/TemplateCard';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
@@ -12,12 +12,16 @@ import { ChatStep, Run, Template } from '../types';
 export const TemplatesList: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
-    const templates = useAppSelector((state) => state.templates.items);
+    const { items: templates, loading, error } = useAppSelector((state) => state.templates);
     const runs = useAppSelector((state) => state.runs.items);
-    
+
+    useEffect(() => {
+        dispatch(fetchTemplates());
+    }, [dispatch]);
+
     const [filterText, setFilterText] = useState('');
     const [difficulty, setDifficulty] = useState<string>('All');
-    
+
     // Viewing active run state
     const [viewingRunId, setViewingRunId] = useState<string | null>(null);
 
@@ -25,17 +29,18 @@ export const TemplatesList: React.FC = () => {
     const viewingRun = runs.find(r => r.id === viewingRunId) || null;
 
     const filteredTemplates = templates.filter(t => {
-        const matchesText = t.name.toLowerCase().includes(filterText.toLowerCase()) || 
-                            t.skills.some(s => s.toLowerCase().includes(filterText.toLowerCase())) ||
-                            t.id.toLowerCase().includes(filterText.toLowerCase());
+        const matchesText = t.name.toLowerCase().includes(filterText.toLowerCase()) ||
+            t.skills.some(s => s.toLowerCase().includes(filterText.toLowerCase())) ||
+            t.id.toLowerCase().includes(filterText.toLowerCase());
         const matchesDiff = difficulty === 'All' || t.difficulty === difficulty;
         return matchesText && matchesDiff;
     });
 
     const handleDuplicate = (id: string) => {
-        const newId = `TMP-${Math.floor(1000 + Math.random() * 9000)}`;
-        dispatch(duplicateTemplate({ id, newId }));
-        navigate(`/templates/edit/${newId}`);
+        const template = templates.find(t => t.id === id);
+        if (template) {
+            dispatch(duplicateTemplate({ id, newName: `${template.name} (Copy)` }));
+        }
     };
 
     const handleSimulateStream = async (templateId: string) => {
@@ -45,7 +50,7 @@ export const TemplatesList: React.FC = () => {
         const runId = `RUN-${Math.floor(Math.random() * 9000) + 1000}`;
         const agentName = `Simulated-Agent-${selectedTemplate.id.split('-')[1]}`;
         const totalSteps = selectedTemplate.criteria ? selectedTemplate.criteria.length : 0;
-        
+
         // 1. Initialize Run
         dispatch(addRun({
             id: runId,
@@ -62,7 +67,7 @@ export const TemplatesList: React.FC = () => {
 
         // 3. Start Stream
         const chatSteps: ChatStep[] = [];
-        
+
         // Initial System Step
         chatSteps.push({
             id: 'init',
@@ -80,7 +85,7 @@ export const TemplatesList: React.FC = () => {
             if (selectedTemplate.criteria) {
                 for (let i = 0; i < totalSteps; i++) {
                     const criterion = selectedTemplate.criteria[i];
-                    
+
                     // Question
                     await new Promise(r => setTimeout(r, 800)); // Visual delay for stream effect
                     const questionStep: ChatStep = {
@@ -102,7 +107,7 @@ export const TemplatesList: React.FC = () => {
                         },
                         criterion.prompt
                     );
-                    
+
                     const answerStep: ChatStep = {
                         id: `a-${i}`,
                         role: 'agent',
@@ -150,7 +155,7 @@ export const TemplatesList: React.FC = () => {
             await new Promise(r => setTimeout(r, 500));
             const finalAvg = potentialScore > 0 ? Math.round(earnedScore / (totalSteps)) : 0;
             const finalStatus = finalAvg >= 70 ? 'pass' : 'fail';
-            
+
             chatSteps.push({
                 id: 'end',
                 role: 'system',
@@ -159,9 +164,9 @@ export const TemplatesList: React.FC = () => {
                 status: finalStatus
             });
 
-            dispatch(updateRunStatus({ 
-                id: runId, 
-                status: finalStatus, 
+            dispatch(updateRunStatus({
+                id: runId,
+                status: finalStatus,
                 score: finalAvg,
                 steps: [...chatSteps]
             }));
@@ -176,34 +181,34 @@ export const TemplatesList: React.FC = () => {
     const renderMobileTemplate = (t: Template) => (
         <div key={t.id} className="bg-surface-dark border border-surface-border rounded-xl p-4 mb-4 flex flex-col gap-4">
             <div className="flex justify-between items-start">
-                 <div>
+                <div>
                     <div className="flex items-center gap-2 mb-1">
                         <Link to={`/templates/edit/${t.id}`} className="font-bold text-white text-lg">{t.name}</Link>
-                         <div className={`size-2.5 rounded-full ${t.difficulty === 'Hard' ? 'bg-red-500' : t.difficulty === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+                        <div className={`size-2.5 rounded-full ${t.difficulty === 'Hard' ? 'bg-red-500' : t.difficulty === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
                     </div>
                     <p className="text-xs text-slate-400 line-clamp-2">{t.description}</p>
-                 </div>
-                 <button 
-                     onClick={() => dispatch(updateTemplate({ id: t.id, changes: { status: t.status === 'draft' ? 'private' : t.status === 'private' ? 'public' : 'draft' } }))}
-                     className={`text-[10px] font-bold uppercase border px-2 py-1 rounded ${t.status === 'public' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-400 border-surface-border'}`}
-                 >
+                </div>
+                <button
+                    onClick={() => dispatch(updateTemplate({ id: t.id, data: { status: t.status === 'draft' ? 'private' : t.status === 'private' ? 'public' : 'draft' } }))}
+                    className={`text-[10px] font-bold uppercase border px-2 py-1 rounded ${t.status === 'public' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-400 border-surface-border'}`}
+                >
                     {t.status}
-                 </button>
+                </button>
             </div>
-            
+
             <div className="flex flex-wrap gap-2">
                 {t.skills.map(s => (
                     <span key={s} className="px-2 py-1 rounded text-xs bg-surface-border/50 text-slate-300 border border-slate-700">{s}</span>
                 ))}
             </div>
-            
+
             <div className="flex items-center justify-between border-t border-surface-border pt-3">
                 <div className="text-xs text-slate-500">{t.lastUpdated}</div>
                 <div className="flex gap-3">
-                     <button onClick={() => handleSimulateStream(t.id)} className="text-primary hover:text-white"><span className="material-symbols-outlined">play_arrow</span></button>
-                     <button onClick={() => handleDuplicate(t.id)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">content_copy</span></button>
-                     <button onClick={() => navigate(`/templates/edit/${t.id}`)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">edit</span></button>
-                     <button onClick={() => dispatch(deleteTemplate(t.id))} className="text-red-400 hover:text-red-300"><span className="material-symbols-outlined">delete</span></button>
+                    <button onClick={() => handleSimulateStream(t.id)} className="text-primary hover:text-white"><span className="material-symbols-outlined">play_arrow</span></button>
+                    <button onClick={() => handleDuplicate(t.id)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">content_copy</span></button>
+                    <button onClick={() => navigate(`/templates/edit/${t.id}`)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">edit</span></button>
+                    <button onClick={() => dispatch(deleteTemplate(t.id))} className="text-red-400 hover:text-red-300"><span className="material-symbols-outlined">delete</span></button>
                 </div>
             </div>
         </div>
@@ -211,10 +216,16 @@ export const TemplatesList: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-6 max-w-7xl mx-auto p-4 md:p-12">
-            <RunDetailsPanel 
-                run={viewingRun} 
-                onClose={() => setViewingRunId(null)} 
+            <RunDetailsPanel
+                run={viewingRun}
+                onClose={() => setViewingRunId(null)}
             />
+
+            {error && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg mb-4">
+                    Error loading templates: {error}
+                </div>
+            )}
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div className="flex flex-col gap-2">
@@ -227,18 +238,18 @@ export const TemplatesList: React.FC = () => {
             </div>
 
             <Card className="p-5 flex flex-col gap-4">
-                <Input 
-                    icon="search" 
-                    placeholder="Search templates by name, skill, or ID..." 
-                    value={filterText} 
-                    onChange={e => setFilterText(e.target.value)} 
+                <Input
+                    icon="search"
+                    placeholder="Search templates by name, skill, or ID..."
+                    value={filterText}
+                    onChange={e => setFilterText(e.target.value)}
                 />
                 <div className="flex flex-wrap gap-3 items-center">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 mr-1">Filters:</span>
-                    
+
                     {/* Difficulty Filter */}
                     <div className="relative group">
-                        <select 
+                        <select
                             className="appearance-none bg-background-dark border border-surface-border hover:border-slate-500 text-slate-200 text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer transition-colors"
                             value={difficulty}
                             onChange={(e) => setDifficulty(e.target.value)}
@@ -274,12 +285,12 @@ export const TemplatesList: React.FC = () => {
                         <tbody className="divide-y divide-surface-border">
                             {filteredTemplates.length > 0 ? (
                                 filteredTemplates.map(t => (
-                                    <TemplateCard 
-                                        key={t.id} 
-                                        template={t} 
-                                        onDelete={(id) => dispatch(deleteTemplate(id))} 
+                                    <TemplateCard
+                                        key={t.id}
+                                        template={t}
+                                        onDelete={(id) => dispatch(deleteTemplate(id))}
                                         onDuplicate={handleDuplicate}
-                                        onStatusChange={(id, status) => dispatch(updateTemplate({ id, changes: { status } }))}
+                                        onStatusChange={(id, status) => dispatch(updateTemplate({ id, data: { status } }))}
                                         onSimulate={handleSimulateStream}
                                     />
                                 ))
@@ -302,7 +313,7 @@ export const TemplatesList: React.FC = () => {
                     {filteredTemplates.length > 0 ? (
                         filteredTemplates.map(renderMobileTemplate)
                     ) : (
-                         <div className="text-center py-12 text-slate-500">
+                        <div className="text-center py-12 text-slate-500">
                             <span className="material-symbols-outlined text-3xl opacity-50 mb-2">search_off</span>
                             <p>No templates found matching your search.</p>
                         </div>

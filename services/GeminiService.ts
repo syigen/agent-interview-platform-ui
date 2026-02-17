@@ -1,19 +1,26 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export class GeminiService {
-    private ai: GoogleGenAI;
+    private ai: GoogleGenAI | null = null;
+    private apiKey: string | undefined;
 
     constructor() {
-        this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        this.apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+        if (this.apiKey) {
+            this.ai = new GoogleGenAI({ apiKey: this.apiKey });
+        } else {
+            console.warn("GeminiService: API Key is missing. AI features will be disabled.");
+        }
     }
 
     /**
      * Generates evaluation criteria based on a template profile.
      */
     async generateCriteria(data: { name: string, description: string, skills: string[], difficulty: string }): Promise<any[]> {
+        if (!this.apiKey || !this.ai) return [];
         try {
             const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.0-flash',
                 contents: `Generate 5 detailed evaluation criteria (interview questions) for an AI agent with the following profile:
                 Name: ${data.name}
                 Description: ${data.description}
@@ -52,7 +59,8 @@ export class GeminiService {
             return [];
         } catch (error) {
             console.error("GeminiService: Failed to generate criteria", error);
-            throw error;
+            // Don't throw, just return empty to avoid UI crash
+            return [];
         }
     }
 
@@ -60,6 +68,7 @@ export class GeminiService {
      * Simulates an agent's response to a specific question based on its persona.
      */
     async simulateAgentResponse(data: { skills: string[], description: string }, question: string): Promise<string> {
+        if (!this.apiKey || !this.ai) return "AI Service Unavailable (Missing Key)";
         try {
             const agentPrompt = `
                 You are an AI agent being interviewed.
@@ -72,7 +81,7 @@ export class GeminiService {
             `;
 
             const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.0-flash',
                 contents: agentPrompt
             });
 
@@ -87,6 +96,7 @@ export class GeminiService {
      * Evaluates an agent's response against expected criteria.
      */
     async evaluateResponse(question: string, expected: string, actual: string): Promise<{ score: number, reasoning: string }> {
+        if (!this.apiKey || !this.ai) return { score: 0, reasoning: "AI Service Unavailable" };
         try {
             const graderPrompt = `
                 You are an automated evaluator.
@@ -103,7 +113,7 @@ export class GeminiService {
             `;
 
             const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.0-flash',
                 contents: graderPrompt,
                 config: {
                     responseMimeType: "application/json",
@@ -131,6 +141,7 @@ export class GeminiService {
      * Re-evaluates a response without specific expected criteria (blind grading based on quality).
      */
     async reEvaluateResponse(question: string, answer: string): Promise<{ score: number, reasoning: string }> {
+        if (!this.apiKey || !this.ai) return { score: 0, reasoning: "AI Service Unavailable" };
         try {
             const prompt = `
                 You are an impartial automated evaluator re-evaluating an answer.
@@ -143,7 +154,7 @@ export class GeminiService {
             `;
 
             const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.0-flash',
                 contents: prompt,
                 config: {
                     responseMimeType: "application/json",
