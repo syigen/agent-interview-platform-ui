@@ -7,7 +7,8 @@ import { Gateway } from './pages/Gateway';
 import { Dashboard } from './pages/Dashboard';
 import { Templates } from './pages/Templates';
 import { AgentRuns } from './pages/AgentRuns';
-import { Console, Interview } from './pages/Session';
+import { Console } from './pages/Console';
+import { Interview } from './pages/Interview';
 import { CertificateList } from './pages/Certificate';
 import { CertificateDetail } from './pages/CertificateDetail';
 

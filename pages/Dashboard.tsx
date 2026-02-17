@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
-import { Card, Badge, Button } from '../components/ui/Common';
+import { Badge, Button } from '../components/ui/Common';
 import { Run, Metric } from '../types';
 import { Link, useNavigate } from 'react-router-dom';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
+import { MetricCard } from '../components/MetricCard';
 
 const metrics: Metric[] = [
   { label: 'Interview Templates', value: '12', change: '+2 this week', trend: 'up', icon: 'library_books' },
@@ -18,34 +19,6 @@ const runs: Run[] = [
   { id: '4', agentId: 'MA', agentName: 'Medi-Assist-Beta', timestamp: '1 hour ago', status: 'pass', score: 92 },
   { id: '5', agentId: 'LE', agentName: 'Legal-Ease-v1', timestamp: '3 hours ago', status: 'pass', score: 88 },
 ];
-
-const MetricCard: React.FC<{ metric: Metric }> = ({ metric }) => {
-    const isLive = metric.label === 'Active Runs';
-    return (
-        <Card className={`p-6 flex flex-col gap-4 relative overflow-hidden group ${isLive ? 'border-primary/50 shadow-primary/5' : ''}`}>
-            {isLive && (
-                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
-                    <span className="material-symbols-outlined text-[80px] text-primary">{metric.icon}</span>
-                </div>
-            )}
-            <div className="flex items-center justify-between z-10">
-                <div className={`p-2 rounded-lg ${isLive ? 'bg-primary/10 text-primary' : 'bg-surface-border text-slate-400'}`}>
-                    <span className={`material-symbols-outlined ${isLive ? 'animate-pulse' : ''}`}>{metric.icon}</span>
-                </div>
-                <span className={`text-xs font-semibold px-2 py-1 rounded ${isLive ? 'text-primary bg-primary/10' : 'text-emerald-500 bg-emerald-500/10'}`}>
-                    {metric.change}
-                </span>
-            </div>
-            <div className="z-10">
-                <p className="text-slate-400 text-sm font-medium">{metric.label}</p>
-                <p className="text-white text-3xl font-bold mt-1">{metric.value}</p>
-            </div>
-            <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden z-10">
-                <div className={`h-full rounded-full ${isLive ? 'bg-primary w-[40%] animate-pulse' : 'bg-emerald-500 w-[75%]'}`}></div>
-            </div>
-        </Card>
-    )
-}
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
