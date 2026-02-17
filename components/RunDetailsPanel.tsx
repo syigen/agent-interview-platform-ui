@@ -1,20 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Textarea } from './ui/Common';
-import { Run } from '../types';
-
-export interface ChatStep {
-    id: string;
-    role: 'interviewer' | 'agent' | 'system';
-    content: string;
-    timestamp: string;
-    status?: 'pass' | 'fail' | 'info';
-    metadata?: Record<string, string>;
-    score?: number;
-    category?: string;
-    isHumanGraded?: boolean;
-    humanNote?: string;
-}
+import { Run, ChatStep } from '../types';
 
 // Mock logs data for demonstration
 const dummyLogs: Record<string, ChatStep[]> = {

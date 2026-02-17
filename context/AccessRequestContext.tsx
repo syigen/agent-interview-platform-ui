@@ -1,15 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-export interface AccessRequest {
-    id: string;
-    certificateId: string;
-    certificateName: string;
-    requesterName: string;
-    requesterContact: string;
-    message: string;
-    timestamp: string;
-    status: 'unread' | 'read';
-}
+import { AccessRequest } from '../types';
 
 interface AccessRequestContextType {
     requests: AccessRequest[];

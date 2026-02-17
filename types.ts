@@ -1,3 +1,24 @@
+export interface Metric {
+    label: string;
+    value: string;
+    change: string;
+    trend: 'up' | 'down';
+    icon: string;
+}
+
+export interface ChatStep {
+    id: string;
+    role: 'interviewer' | 'agent' | 'system';
+    content: string;
+    timestamp: string;
+    status?: 'pass' | 'fail' | 'info';
+    metadata?: Record<string, string>;
+    score?: number;
+    category?: string;
+    isHumanGraded?: boolean;
+    humanNote?: string;
+}
+
 export interface Run {
   id: string;
   agentId: string;
@@ -5,6 +26,7 @@ export interface Run {
   timestamp: string;
   status: 'pass' | 'fail' | 'in_progress' | 'running';
   score?: number;
+  steps?: ChatStep[];
 }
 
 export interface Criterion {
@@ -25,10 +47,21 @@ export interface Template {
   lastUpdated: string;
 }
 
-export interface Metric {
-    label: string;
-    value: string;
-    change: string;
-    trend: 'up' | 'down';
-    icon: string;
+export interface Certificate {
+    id: string;
+    agent: string;
+    date: string;
+    score: number;
+    template: string;
+}
+
+export interface AccessRequest {
+    id: string;
+    certificateId: string;
+    certificateName: string;
+    requesterName: string;
+    requesterContact: string;
+    message: string;
+    timestamp: string;
+    status: 'unread' | 'read';
 }
