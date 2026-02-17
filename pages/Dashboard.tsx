@@ -1,32 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Layout } from '../components/Layout';
-import { Badge, Button } from '../components/ui/Common';
+import { Button } from '../components/ui/Common';
 import { Run, Metric } from '../types';
 import { Link, useNavigate } from 'react-router-dom';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
 import { MetricCard } from '../components/MetricCard';
-
-const metrics: Metric[] = [
-  { label: 'Interview Templates', value: '12', change: '+2 this week', trend: 'up', icon: 'library_books' },
-  { label: 'Active Runs', value: '4', change: 'Live Processing', trend: 'up', icon: 'memory' },
-  { label: 'Certificates Issued', value: '843', change: '+5% vs last month', trend: 'up', icon: 'verified' },
-];
-
-const runs: Run[] = [
-  { id: '1', agentId: 'A2', agentName: 'Agent-Alpha-v2', timestamp: 'Just now', status: 'pass', score: 98 },
-  { id: '2', agentId: 'CB', agentName: 'Customer-Support-Bot', timestamp: '2 mins ago', status: 'running' },
-  { id: '3', agentId: 'TX', agentName: 'Trading-Algo-X', timestamp: '15 mins ago', status: 'fail', score: 45 },
-  { id: '4', agentId: 'MA', agentName: 'Medi-Assist-Beta', timestamp: '1 hour ago', status: 'pass', score: 92 },
-  { id: '5', agentId: 'LE', agentName: 'Legal-Ease-v1', timestamp: '3 hours ago', status: 'pass', score: 88 },
-];
+import { RecentActivityTable } from '../components/RecentActivityTable';
+import { useAppSelector } from '../store/hooks';
+import { certificates } from '../data/certificates';
+import { RequestsInbox } from '../components/RequestsInbox';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
+  const [showInbox, setShowInbox] = useState(false);
+
+  // Connect to Redux Store
+  const runs = useAppSelector((state) => state.runs.items);
+  const templates = useAppSelector((state) => state.templates.items);
+  const accessRequests = useAppSelector((state) => state.accessRequests.items);
+
+  // Calculate Metrics based on real store data
+  const metrics = useMemo<Metric[]>(() => {
+      const activeRunsCount = runs.filter(r => r.status === 'running' || r.status === 'in_progress').length;
+      const passedRunsCount = runs.filter(r => r.status === 'pass').length;
+      const unreadRequests = accessRequests.filter(r => r.status === 'unread').length;
+      
+      // Use base of 843 to match UI design requirements, plus real dynamic certificates
+      const totalCertificates = 843 + passedRunsCount; 
+
+      return [
+        { 
+            label: 'Interview Templates', 
+            value: templates.length.toString(), 
+            change: '+2 this week', 
+            trend: 'up', 
+            icon: 'library_books',
+            status: 'neutral'
+        },
+        { 
+            label: 'Active Runs', 
+            value: activeRunsCount.toString(), 
+            change: activeRunsCount > 0 ? 'Live Processing' : 'System Idle', 
+            trend: 'up', 
+            icon: 'memory',
+            status: activeRunsCount > 0 ? 'info' : 'neutral'
+        },
+        { 
+            label: 'Certificates Issued', 
+            value: totalCertificates.toString(), 
+            change: '+5% vs last month', 
+            trend: 'up', 
+            icon: 'verified',
+            status: 'success'
+        },
+        {
+            label: 'Access Requests',
+            value: unreadRequests.toString(),
+            change: unreadRequests > 0 ? `${unreadRequests} Pending` : 'All Clear',
+            trend: unreadRequests > 0 ? 'up' : 'down',
+            icon: 'inbox',
+            onClick: () => setShowInbox(true),
+            status: unreadRequests > 0 ? 'warning' : 'success'
+        }
+      ];
+  }, [runs, templates, accessRequests]);
+
+  // Get 5 most recent runs
+  const recentRuns = useMemo(() => runs.slice(0, 5), [runs]);
 
   return (
     <Layout>
       <RunDetailsPanel run={selectedRun} onClose={() => setSelectedRun(null)} />
+      <RequestsInbox isOpen={showInbox} onClose={() => setShowInbox(false)} />
       
       <div className="p-4 md:p-8 lg:px-12 xl:px-16 max-w-[1400px] mx-auto flex flex-col gap-8">
         
@@ -42,7 +88,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {metrics.map((m) => <MetricCard key={m.label} metric={m} />)}
         </div>
 
@@ -58,80 +104,7 @@ export const Dashboard: React.FC = () => {
                 </button>
             </div>
 
-            <div className="w-full overflow-hidden rounded-xl border border-surface-border bg-surface-dark shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead>
-                            <tr className="border-b border-surface-border bg-[#151c2a]">
-                                <th className="px-6 py-4 font-semibold text-slate-300">Agent ID</th>
-                                <th className="px-6 py-4 font-semibold text-slate-300">Timestamp</th>
-                                <th className="px-6 py-4 font-semibold text-slate-300">Status</th>
-                                <th className="px-6 py-4 font-semibold text-slate-300">Score</th>
-                                <th className="px-6 py-4 font-semibold text-slate-300 text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-surface-border">
-                            {runs.map((run) => (
-                                <tr 
-                                    key={run.id} 
-                                    className="group hover:bg-[#1f293a] transition-colors cursor-pointer"
-                                    onClick={() => setSelectedRun(run)}
-                                >
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="size-8 rounded bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs">
-                                                {run.agentId}
-                                            </div>
-                                            <span className="font-medium text-white font-mono">{run.agentName}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-400 whitespace-nowrap">{run.timestamp}</td>
-                                    <td className="px-6 py-4">
-                                        {run.status === 'pass' && <Badge type="pass" icon="check_circle">Certified</Badge>}
-                                        {run.status === 'fail' && <Badge type="fail" icon="cancel">Failed</Badge>}
-                                        {run.status === 'running' && <Badge type="progress" icon="sync">In Progress</Badge>}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {run.score ? (
-                                            <div className="flex items-center gap-2">
-                                                <span className={`font-bold ${run.score > 80 ? 'text-white' : 'text-red-400'}`}>{run.score}</span>
-                                                <span className="text-slate-500 text-xs">/100</span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-slate-500 italic text-xs">Running...</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-3">
-                                            {run.status === 'pass' && (
-                                                <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/certificate/${run.id}`);
-                                                    }}
-                                                    className="text-emerald-500 hover:text-emerald-400 font-medium text-xs flex items-center gap-1 transition-colors uppercase tracking-wider"
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px]">verified</span>
-                                                    Certificate
-                                                </button>
-                                            )}
-                                            <button 
-                                                className="text-slate-400 hover:text-white font-medium text-sm transition-colors"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedRun(run);
-                                                }}
-                                            >
-                                                {run.status === 'running' ? 'Monitor' : 'View Report'}
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <RecentActivityTable runs={recentRuns} onSelectRun={setSelectedRun} />
         </div>
 
       </div>

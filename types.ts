@@ -5,6 +5,8 @@ export interface Metric {
     change: string;
     trend: 'up' | 'down';
     icon: string;
+    onClick?: () => void;
+    status?: 'success' | 'warning' | 'neutral' | 'info';
 }
 
 export interface GradeEntry {
@@ -37,7 +39,6 @@ export interface Run {
   score?: number;
   steps?: ChatStep[];
   totalSteps?: number;
-  isCertified?: boolean;
 }
 
 export interface Criterion {

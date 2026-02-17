@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from './ui/Common';
+import { Button, Input, Textarea, Badge } from './ui/Common';
 import { Run, ChatStep, GradeEntry } from '../types';
 import { geminiService } from '../services/GeminiService';
-import { useAppDispatch } from '../store/hooks';
-import { updateRunStatus } from '../store/slices/runSlice';
 
 // Mock logs data for demonstration
 const dummyLogs: Record<string, ChatStep[]> = {
@@ -15,154 +13,6 @@ const dummyLogs: Record<string, ChatStep[]> = {
         { id: '4', role: 'system', content: 'Basic definition provided.', timestamp: '00:00:09', status: 'pass', score: 85, category: 'Knowledge', gradingHistory: [{ source: 'ai', score: 85, reasoning: 'Basic definition provided.', timestamp: '00:00:09' }] }
     ]
 };
-
-// --- Sub-Components ---
-
-interface ScoreDisplayProps {
-    step: ChatStep;
-    isLocked: boolean;
-    onEdit: () => void;
-}
-
-const ScoreDisplay: React.FC<ScoreDisplayProps> = ({ step, isLocked, onEdit }) => (
-    <div className="flex flex-col items-center gap-2 z-10 max-w-lg w-full group relative">
-        <div className={`
-        flex items-center gap-3 px-5 py-2 rounded-full border shadow-lg relative transition-all duration-300
-        ${(step.score || 0) >= 90 ? 'bg-[#062c1e] border-emerald-500/30 text-emerald-400' : 
-            (step.score || 0) >= 70 ? 'bg-[#2e1d05] border-yellow-500/30 text-yellow-400' : 
-            'bg-[#2c0b0e] border-red-500/30 text-red-400'}
-        `}>
-            <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1">
-            {step.isHumanGraded ? (
-                <span className="flex items-center gap-1 text-yellow-400"><span className="material-symbols-outlined text-[14px]">person_edit</span> Human</span>
-            ) : (
-                <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">auto_awesome</span> AI Graded</span>
-            )}
-            </span>
-            <div className="w-px h-3 bg-current opacity-20"></div>
-            <span className="font-mono font-bold text-lg">{step.score}</span>
-
-            {/* Plus Button Overlay - ONLY visible if NOT locked */}
-            {!isLocked && (
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                    className="absolute -right-3 -top-3 size-6 rounded-full bg-primary text-white shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-110 transition-transform z-20 border border-white/20"
-                    title="Add Review / Edit"
-                >
-                    <span className="material-symbols-outlined text-[16px]">add</span>
-                </button>
-            )}
-        </div>
-        {!step.isHumanGraded && step.content && (
-            <div className="text-xs text-slate-500 max-w-xs text-center italic opacity-80">
-                "{step.content}"
-            </div>
-        )}
-        {step.isHumanGraded && step.humanNote && (
-            <div className="text-xs text-yellow-500/80 max-w-xs text-center italic">
-                Note: "{step.humanNote}"
-            </div>
-        )}
-    </div>
-);
-
-interface GradingEditorProps {
-    step: ChatStep;
-    onSave: () => void;
-    onCancel: () => void;
-    onUpdate: (updates: Partial<ChatStep>) => void;
-    onAddReview: (score: number, note: string) => void;
-    onSelectHistory: (entry: GradeEntry) => void;
-}
-
-const GradingEditor: React.FC<GradingEditorProps> = ({ step, onSave, onCancel, onUpdate, onAddReview, onSelectHistory }) => {
-    return (
-        <div className={`flex flex-col items-center gap-4 bg-[#1a2332] p-5 rounded-xl border border-primary shadow-[0_0_30px_-5px_rgba(37,99,235,0.3)] z-20 w-full max-w-sm animate-fade-in-up`}>
-            {/* Header */}
-            <div className="w-full flex justify-between items-center mb-2">
-                <span className="text-xs font-bold text-primary uppercase flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[16px]">edit_note</span>
-                    Review Panel
-                </span>
-                <span className="text-2xl font-black text-white">{step.score}</span>
-            </div>
-
-            {/* Slider */}
-            <div className="w-full">
-                <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={step.score} 
-                    onChange={(e) => onUpdate({ score: parseInt(e.target.value), isHumanGraded: true })}
-                    className="w-full h-2 bg-surface-border rounded-lg appearance-none cursor-pointer accent-primary mb-2"
-                />
-            </div>
-
-            {/* Note Input */}
-            <div className="w-full pt-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Reviewer Note</label>
-                <textarea 
-                    className="w-full bg-[#111722] border border-surface-border rounded-lg text-xs text-white p-3 resize-none focus:border-primary/50 outline-none"
-                    rows={3}
-                    value={step.humanNote || ''}
-                    onChange={(e) => onUpdate({ humanNote: e.target.value, isHumanGraded: true })}
-                    placeholder="Enter reasoning..."
-                />
-            </div>
-            
-            {/* Add Review Action */}
-            <div className="w-full flex justify-end pt-2 border-b border-white/5 pb-4">
-                <Button 
-                    variant="primary" 
-                    onClick={() => onAddReview(step.score || 0, step.humanNote || '')} 
-                    className="py-1.5 px-3 h-auto text-xs w-full" 
-                    icon="add_comment"
-                >
-                    Add New Review
-                </Button>
-            </div>
-
-            {/* History Grid */}
-            {step.gradingHistory && step.gradingHistory.length > 0 && (
-                <div className="w-full pt-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">History Selection</label>
-                    <div className="grid grid-cols-4 gap-2">
-                        {step.gradingHistory.map((entry, i) => {
-                            const isActive = entry.score === step.score && 
-                                (entry.source === 'human' ? entry.reasoning === step.humanNote : entry.reasoning === step.content);
-                            
-                            return (
-                                <div key={i} className="relative group/history">
-                                    <button 
-                                        onClick={() => onSelectHistory(entry)}
-                                        className={`w-full flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border transition-all
-                                            ${isActive 
-                                                ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 font-bold' 
-                                                : 'bg-[#111722] border-surface-border text-slate-500 hover:border-slate-400'
-                                            }`}
-                                    >
-                                        <span className="text-xs font-mono">{entry.score}</span>
-                                        <span className="material-symbols-outlined text-[10px] opacity-70">{entry.source === 'ai' ? 'smart_toy' : 'person'}</span>
-                                    </button>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
-            {/* Footer Actions */}
-            <div className="w-full flex gap-3 mt-2 pt-2 border-t border-white/5">
-                <Button variant="ghost" onClick={onCancel} className="flex-1 py-1.5 h-auto text-xs">Cancel</Button>
-                <Button variant="secondary" onClick={onSave} className="flex-1 py-1.5 h-auto text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">Save</Button>
-            </div>
-        </div>
-    );
-};
-
-
-// --- Main Component ---
 
 interface RunDetailsPanelProps {
     run: Run | null;
@@ -177,7 +27,9 @@ interface RerunError {
 
 const LoadingSkeleton = ({ role }: { role: 'agent' | 'system' }) => (
     <div className={`relative pl-8 animate-fade-in-up`}>
+        {/* Connector Line Ghost */}
         <div className="absolute left-[11px] top-0 h-full w-px bg-surface-border opacity-50"></div>
+
         <div className={`absolute left-0 top-0 size-6 rounded-full border-2 flex items-center justify-center z-10 bg-[#111722] ${role === 'agent' ? 'border-primary' : 'border-slate-600'}`}>
             <span className={`material-symbols-outlined text-[14px] ${role === 'agent' ? 'text-primary' : 'text-slate-400'}`}>{role === 'agent' ? 'smart_toy' : 'terminal'}</span>
         </div>
@@ -196,24 +48,143 @@ const LoadingSkeleton = ({ role }: { role: 'agent' | 'system' }) => (
     </div>
 );
 
+interface GradingHistoryItemProps {
+    entry: GradeEntry;
+    isElected: boolean;
+    onElect: () => void;
+}
+
+const GradingHistoryItem: React.FC<GradingHistoryItemProps> = ({ entry, isElected, onElect }) => {
+    return (
+        <div className={`relative flex flex-col p-4 rounded-xl border transition-all duration-300 ml-0 ${isElected ? 'bg-[#1a2332] border-primary shadow-lg opacity-100 z-10' : 'bg-[#111722] border-surface-border opacity-60 hover:opacity-100 grayscale hover:grayscale-0'}`}>
+             <div className="flex justify-between items-start mb-2">
+                 <div className="flex items-center gap-3">
+                     <div className={`size-6 rounded-full flex items-center justify-center border ${isElected ? 'bg-primary border-primary text-white' : 'bg-surface-dark border-slate-600 text-slate-500'}`}>
+                         <span className="material-symbols-outlined text-[14px]">
+                            {isElected ? 'check' : (entry.source === 'ai' ? 'smart_toy' : 'person')}
+                         </span>
+                     </div>
+                     <div className="flex flex-col">
+                         <span className={`text-xs font-bold uppercase tracking-wider ${isElected ? 'text-primary' : 'text-slate-500'}`}>
+                             {entry.source === 'ai' ? 'Automated Evaluation' : 'Human Review'}
+                         </span>
+                         <span className="text-[10px] text-slate-500 font-mono">{entry.timestamp}</span>
+                     </div>
+                 </div>
+                 <div className={`text-xl font-black ${entry.score >= 70 ? 'text-white' : 'text-red-400'}`}>{entry.score}</div>
+             </div>
+             
+             <p className="text-sm text-slate-300 mb-3 pl-9">{entry.reasoning}</p>
+
+             {!isElected && (
+                 <div className="pl-9">
+                    <Button 
+                        variant="ghost" 
+                        className="text-xs h-7 px-3 border border-surface-border hover:border-primary hover:bg-primary/10" 
+                        icon="check_circle"
+                        onClick={onElect}
+                    >
+                        Elect as Final
+                    </Button>
+                 </div>
+             )}
+         </div>
+    );
+};
+
+interface GradingFormProps {
+    currentScore: number;
+    onSubmit: (score: number, note: string) => void;
+    onAIReGrade: () => void;
+    isProcessing: boolean;
+}
+
+const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIReGrade, isProcessing }) => {
+    const [score, setScore] = useState(currentScore);
+    const [note, setNote] = useState('');
+
+    return (
+        <div className="mt-2 p-4 rounded-xl border border-dashed border-surface-border bg-surface-dark/30 hover:bg-surface-dark transition-colors relative z-10 group/form">
+            <div className="absolute left-[27px] top-[-24px] h-6 w-0.5 bg-surface-border -z-10"></div>
+            <div className="flex items-center gap-2 mb-3">
+                <div className="size-6 rounded-full bg-surface-border flex items-center justify-center text-slate-400 group-hover/form:text-white transition-colors">
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                </div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider group-hover/form:text-white transition-colors">Add New Review</h4>
+            </div>
+            
+            <div className="pl-9 space-y-3">
+                <div className="flex items-center gap-4">
+                    <span className="text-xs font-bold text-slate-500">Score:</span>
+                    <input 
+                        type="number" 
+                        className="bg-[#0a0e17] border border-surface-border rounded px-2 py-1 text-white text-sm w-20 text-center focus:border-primary outline-none"
+                        placeholder="0-100"
+                        value={score}
+                        onChange={(e) => setScore(Number(e.target.value))}
+                        min={0} max={100}
+                    />
+                    <input 
+                        type="range" 
+                        className="flex-1 accent-primary h-2 bg-surface-border rounded-lg appearance-none cursor-pointer"
+                        min="0" max="100"
+                        value={score}
+                        onChange={(e) => setScore(Number(e.target.value))}
+                    />
+                </div>
+                <textarea 
+                    className="w-full bg-[#0a0e17] border border-surface-border rounded-lg p-3 text-sm text-white resize-none focus:border-primary outline-none"
+                    rows={2}
+                    placeholder="Enter reasoning for new grade..."
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                ></textarea>
+                <div className="flex justify-between items-center pt-2">
+                     <Button 
+                        variant="secondary"
+                        className="text-xs h-8 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/50"
+                        icon="smart_toy"
+                        onClick={onAIReGrade}
+                        disabled={isProcessing}
+                    >
+                        {isProcessing ? 'Evaluating...' : 'Re-evaluate by AI'}
+                    </Button>
+
+                    <Button 
+                        icon="add_comment" 
+                        className="text-xs h-8"
+                        onClick={() => {
+                            if (note.trim()) {
+                                onSubmit(score, note);
+                                setNote('');
+                            }
+                        }}
+                    >
+                        Submit Review
+                    </Button>
+                </div>
+            </div>
+         </div>
+    );
+}
+
 export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }) => {
     const navigate = useNavigate();
-    const dispatch = useAppDispatch();
     const [localLogs, setLocalLogs] = useState<ChatStep[]>([]);
     const [originalLogs, setOriginalLogs] = useState<ChatStep[] | null>(null);
     const scrollEndRef = useRef<HTMLDivElement>(null);
     
-    // Editor State
-    const [editingStepId, setEditingStepId] = useState<string | null>(null);
-    const [preEditSnapshot, setPreEditSnapshot] = useState<ChatStep | null>(null);
-
-    // Rerun State
+    const [isGradingMode, setIsGradingMode] = useState(false);
     const [showRerunConfirm, setShowRerunConfirm] = useState(false);
     const [regradingStepId, setRegradingStepId] = useState<string | null>(null);
     const [isRunningFullRegrade, setIsRunningFullRegrade] = useState(false);
     const [rerunError, setRerunError] = useState<RerunError | null>(null);
+    
+    // Progress state for re-runs
     const [regradeProgress, setRegradeProgress] = useState(0);
     const [currentRegradeIndex, setCurrentRegradeIndex] = useState(-1);
+
+    // Track if we should continue running (for error handling cancellation)
     const shouldContinueRef = useRef(true);
 
     useEffect(() => {
@@ -224,7 +195,10 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
             } else {
                 logs = dummyLogs[run.id] || dummyLogs['default'];
             }
+
             setLocalLogs(JSON.parse(JSON.stringify(logs)));
+            
+            // Auto-scroll on update if running
             if (run.status === 'running') {
                 setTimeout(() => {
                     scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -234,91 +208,115 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
     }, [run]);
 
     if (!run) return null;
-
-    // A run is locked if it's explicitly certified or currently processing
-    const isLocked = !!run.isCertified || run.status === 'running' || isRunningFullRegrade;
     
-    const avgScore = localLogs.filter(s => s.score !== undefined).length > 0 
-        ? Math.round(localLogs.filter(s => s.score !== undefined).reduce((acc, curr) => acc + (curr.score || 0), 0) / localLogs.filter(s => s.score !== undefined).length) 
+    // Calculate Progress
+    const stepsCount = localLogs.length;
+    const totalEstimatedSteps = run.totalSteps ? (run.totalSteps * 3) + 2 : (Math.max(stepsCount + 2, 20)); 
+    
+    let displayProgress = 0;
+    if (isRunningFullRegrade) {
+        displayProgress = regradeProgress;
+    } else if (run.status === 'running') {
+        displayProgress = Math.min(100, Math.round((stepsCount / totalEstimatedSteps) * 100));
+    }
+
+    const lastStep = localLogs[localLogs.length - 1];
+    let pendingRole: 'agent' | 'system' | null = null;
+    
+    if (run.status === 'running' && lastStep) {
+        if (lastStep.role === 'interviewer') pendingRole = 'agent';
+        else if (lastStep.role === 'agent') pendingRole = 'system';
+    }
+
+    const scoredSteps = localLogs.filter(s => s.score !== undefined);
+    const avgScore = scoredSteps.length > 0 
+        ? Math.round(scoredSteps.reduce((acc, curr) => acc + (curr.score || 0), 0) / scoredSteps.length) 
         : 0;
     
-    // --- Actions ---
-
-    const handleEditClick = (step: ChatStep) => {
-        if (isLocked) return;
-        setPreEditSnapshot(JSON.parse(JSON.stringify(step)));
-        setEditingStepId(step.id);
-    };
-
-    const handleUpdateStep = (stepId: string, updates: Partial<ChatStep>) => {
-        setLocalLogs(prev => prev.map(s => s.id === stepId ? { ...s, ...updates } : s));
-    };
-
-    const handleAddReview = (stepId: string, score: number, note: string) => {
+    const updateStepGrade = (stepId: string, source: 'human' | 'ai', newScore: number, note?: string) => {
         setLocalLogs(prev => prev.map(step => {
             if (step.id !== stepId) return step;
+
             const newEntry: GradeEntry = {
-                source: 'human',
-                score,
+                source,
+                score: newScore,
                 reasoning: note,
                 timestamp: new Date().toLocaleTimeString()
             };
+
+            // Preserve existing state if history is empty
+            let history = step.gradingHistory ? [...step.gradingHistory] : [];
+            if (history.length === 0) {
+                 history.push({
+                     source: step.isHumanGraded ? 'human' : 'ai',
+                     score: step.score || 0,
+                     reasoning: step.humanNote || step.content,
+                     timestamp: step.timestamp
+                 });
+            }
+            history.push(newEntry);
+
             return {
                 ...step,
-                score,
-                isHumanGraded: true,
-                humanNote: note,
-                gradingHistory: step.gradingHistory ? [...step.gradingHistory, newEntry] : [newEntry]
+                score: newScore,
+                isHumanGraded: source === 'human',
+                humanNote: source === 'human' ? note : undefined,
+                content: source === 'ai' && note ? note : step.content,
+                gradingHistory: history
             };
         }));
     };
 
-    const handleSelectHistory = (stepId: string, entry: GradeEntry) => {
-         setLocalLogs(prev => prev.map(step => {
+    const handleElectEntry = (stepId: string, entry: GradeEntry) => {
+        setLocalLogs(prev => prev.map(step => {
             if (step.id !== stepId) return step;
             return {
                 ...step,
                 score: entry.score,
                 isHumanGraded: entry.source === 'human',
                 humanNote: entry.source === 'human' ? entry.reasoning : undefined,
-                content: entry.source === 'ai' && entry.reasoning ? entry.reasoning : step.content
+                content: entry.source === 'ai' ? (entry.reasoning || step.content) : step.content,
+                // gradingHistory remains the same
+                gradingHistory: step.gradingHistory
             };
         }));
     };
 
-    const handleSaveEditor = () => {
-        setEditingStepId(null);
-        setPreEditSnapshot(null);
-        // Here we would typically save the entire run state to the backend/store
-        // For now, localLogs has the latest "Add Review" commit or "Preview"
-        // Since we want "Save" to persist whatever is in the view:
-        if (run && editingStepId) {
-             const updatedStep = localLogs.find(s => s.id === editingStepId);
-             if (updatedStep) {
-                 // In a real app, dispatch an update to the store for this specific step
-             }
+    const handleAIReGrade = async (stepId: string, stepIndex: number): Promise<void> => {
+        setRegradingStepId(stepId);
+        try {
+            let question = "Unknown Question";
+            let answer = "Unknown Answer";
+            for (let i = stepIndex - 1; i >= 0; i--) {
+                const s = localLogs[i];
+                if (s.role === 'agent' && answer === "Unknown Answer") answer = s.content;
+                if (s.role === 'interviewer' && question === "Unknown Question") {
+                    question = s.content;
+                    break;
+                }
+            }
+
+            const result = await geminiService.reEvaluateResponse(question, answer);
+            updateStepGrade(stepId, 'ai', result.score, result.reasoning);
+
+        } catch (e) {
+            console.error("Re-grading failed", e);
+            throw e;
+        } finally {
+            setRegradingStepId(null);
         }
     };
 
-    const handleCancelEditor = () => {
-        if (preEditSnapshot && editingStepId) {
-            setLocalLogs(prev => prev.map(s => s.id === editingStepId ? preEditSnapshot : s));
-        }
-        setEditingStepId(null);
-        setPreEditSnapshot(null);
+    const handleSaveGrades = () => {
+        setIsGradingMode(false);
+        setOriginalLogs(null);
     };
 
-    const handleIssueCertificate = () => {
-        if (window.confirm("Issuing a certificate will lock this transcript. Continue?")) {
-            dispatch(updateRunStatus({ id: run.id, isCertified: true }));
-        }
-    };
-
-    // --- Rerun Logic (Simulated) ---
     const executeRegradeLoop = async (startIndex: number) => {
         const stepsToRegrade = localLogs
             .map((step, index) => ({ step, index, queueIndex: -1 }))
             .filter(({ step }) => step.role === 'system' && step.score !== undefined);
+            
         stepsToRegrade.forEach((item, idx) => item.queueIndex = idx);
 
         shouldContinueRef.current = true;
@@ -328,34 +326,56 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
 
         for (let i = startIndex; i < stepsToRegrade.length; i++) {
             if (!shouldContinueRef.current) break;
+
             const { step, index } = stepsToRegrade[i];
+            
             setCurrentRegradeIndex(index); 
             setRegradeProgress(Math.round(((i) / stepsToRegrade.length) * 100));
+
             const el = document.getElementById(`step-${step.id}`);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
             try {
                 await new Promise(resolve => setTimeout(resolve, 800));
-                // Mock AI regrade
-                const newScore = Math.min(100, Math.max(0, (step.score || 0) + Math.floor(Math.random() * 10 - 5)));
-                const reasoning = "Automated re-evaluation based on standard criteria.";
-                
-                setLocalLogs(prev => prev.map(s => {
-                     if (s.id !== step.id) return s;
-                     const newEntry: GradeEntry = { source: 'ai', score: newScore, reasoning, timestamp: new Date().toLocaleTimeString() };
-                     return { ...s, score: newScore, isHumanGraded: false, content: reasoning, gradingHistory: [...(s.gradingHistory||[]), newEntry] };
-                }));
-
+                await handleAIReGrade(step.id, index);
                 setRegradeProgress(Math.round(((i + 1) / stepsToRegrade.length) * 100));
             } catch (error) {
-                setRerunError({ stepId: step.id, indexInQueue: i, message: "Execution interrupted." });
+                setRerunError({
+                    stepId: step.id,
+                    indexInQueue: i,
+                    message: "Execution interrupted: Unable to verify response."
+                });
                 setIsRunningFullRegrade(false);
                 return;
             }
         }
+        
         setCurrentRegradeIndex(-1);
         setIsRunningFullRegrade(false);
         setRegradeProgress(100);
+    };
+
+    const handleFullReRun = async () => {
+        setOriginalLogs(JSON.parse(JSON.stringify(localLogs)));
+        setShowRerunConfirm(false);
+        executeRegradeLoop(0);
+    };
+
+    const handleRetryRun = () => {
+        if (rerunError) {
+            executeRegradeLoop(rerunError.indexInQueue);
+        }
+    };
+
+    const handleDiscardRun = () => {
+        if (originalLogs) {
+            setLocalLogs(originalLogs);
+            setOriginalLogs(null);
+        }
+        setRerunError(null);
+        setIsRunningFullRegrade(false);
+        setRegradeProgress(0);
+        setCurrentRegradeIndex(-1);
     };
 
     return (
@@ -363,6 +383,24 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isRunningFullRegrade && run.status !== 'running' && onClose()}></div>
              <div className="relative w-full max-w-3xl bg-[#111722] border-l border-surface-border shadow-2xl h-full flex flex-col animate-fade-in-up">
                 
+                {/* Error Overlay */}
+                {rerunError && (
+                    <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-8 animate-fade-in-up">
+                        <div className="bg-[#1a2332] border border-red-500/30 rounded-xl p-6 max-w-md w-full shadow-2xl">
+                            <div className="flex items-center gap-3 mb-4 text-red-500">
+                                <span className="material-symbols-outlined text-3xl">error</span>
+                                <h3 className="text-xl font-bold text-white">Execution Failed</h3>
+                            </div>
+                            <p className="text-slate-300 mb-2">The automated re-evaluation process encountered an error at step <span className="font-mono text-white">{rerunError.indexInQueue + 1}</span>.</p>
+                            <p className="text-xs text-red-400 font-mono bg-red-500/10 p-2 rounded border border-red-500/10 mb-6">{rerunError.message}</p>
+                            <div className="grid grid-cols-2 gap-4 mt-6">
+                                <Button variant="ghost" onClick={handleDiscardRun}>Discard</Button>
+                                <Button onClick={handleRetryRun} icon="refresh">Retry</Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header */}
                 <div className="flex flex-col border-b border-surface-border bg-surface-dark/50 z-20">
                     <div className="flex items-center justify-between p-6 pb-4">
@@ -394,9 +432,14 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                             </button>
                         </div>
                     </div>
+                    
                     {(run.status === 'running' || isRunningFullRegrade) && (
                         <div className="w-full h-1 bg-surface-border relative overflow-hidden">
-                            <div className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-out" style={{ width: `${regradeProgress}%` }}></div>
+                            <div 
+                                className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-out"
+                                style={{ width: `${displayProgress}%` }}
+                            ></div>
+                            <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]"></div>
                         </div>
                     )}
                 </div>
@@ -405,31 +448,86 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth bg-gradient-to-b from-[#111722] to-[#0d121c]">
                     {localLogs.map((step, idx) => {
                         const isScoreStep = step.role === 'system' && step.score !== undefined;
-                        const isEditing = editingStepId === step.id;
                         const isProcessing = regradingStepId === step.id;
+                        
                         const isPendingReRun = isRunningFullRegrade && idx > currentRegradeIndex && !isProcessing;
-                        const containerClasses = `relative py-4 group transition-all duration-500 ${isProcessing ? 'scale-[1.02]' : ''} ${isPendingReRun ? 'opacity-30 blur-[1px] grayscale' : 'opacity-100'}`;
+
+                        const containerClasses = `relative py-4 group transition-all duration-500 
+                            ${isProcessing ? 'scale-[1.02]' : ''} 
+                            ${isPendingReRun ? 'opacity-30 blur-[1px] grayscale' : 'opacity-100'}`;
 
                         if (isScoreStep) {
+                            // Construct valid history
+                            const history = step.gradingHistory && step.gradingHistory.length > 0 
+                                ? [...step.gradingHistory] 
+                                : [{ 
+                                    source: step.isHumanGraded ? 'human' : 'ai', 
+                                    score: step.score || 0, 
+                                    reasoning: step.humanNote || step.content, 
+                                    timestamp: step.timestamp 
+                                  } as GradeEntry];
+
                             return (
                                 <div key={step.id} id={`step-${step.id}`} className={containerClasses}>
                                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-surface-border -z-10"></div>
-                                     <div className="flex justify-center">
-                                         {isEditing ? (
-                                             <GradingEditor 
-                                                step={step}
-                                                onSave={handleSaveEditor}
-                                                onCancel={handleCancelEditor}
-                                                onUpdate={(updates) => handleUpdateStep(step.id, updates)}
-                                                onAddReview={(s, n) => handleAddReview(step.id, s, n)}
-                                                onSelectHistory={(entry) => handleSelectHistory(step.id, entry)}
-                                             />
+                                     <div className="flex justify-center w-full">
+                                         {isGradingMode ? (
+                                             <div className="flex flex-col gap-6 w-full max-w-lg relative animate-fade-in-up">
+                                                 {/* Timeline Track */}
+                                                 <div className="absolute left-[27px] top-6 bottom-6 w-0.5 bg-surface-border -z-10"></div>
+
+                                                 {history.map((entry, hIdx) => {
+                                                     const isElected = entry.score === step.score && 
+                                                         (entry.source === 'human' ? entry.reasoning === step.humanNote : (entry.reasoning === step.content || entry.reasoning === step.humanNote));
+                                                     
+                                                     return (
+                                                        <GradingHistoryItem 
+                                                            key={hIdx} 
+                                                            entry={entry} 
+                                                            isElected={isElected} 
+                                                            onElect={() => handleElectEntry(step.id, entry)} 
+                                                        />
+                                                     );
+                                                 })}
+
+                                                <GradingForm 
+                                                    currentScore={step.score || 0}
+                                                    onSubmit={(score, note) => updateStepGrade(step.id, 'human', score, note)}
+                                                    onAIReGrade={() => handleAIReGrade(step.id, idx)}
+                                                    isProcessing={isProcessing}
+                                                />
+                                             </div>
                                          ) : (
-                                             <ScoreDisplay 
-                                                step={step} 
-                                                isLocked={isLocked} 
-                                                onEdit={() => handleEditClick(step)} 
-                                             />
+                                             // View Mode Pill
+                                             <div className="flex flex-col items-center gap-2 z-10 max-w-lg w-full">
+                                                 <div className={`
+                                                    flex items-center gap-3 px-4 py-1.5 rounded-full border shadow-lg relative transition-all duration-300
+                                                    ${isProcessing ? 'scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]' : ''}
+                                                    ${(step.score || 0) >= 90 ? 'bg-[#062c1e] border-emerald-500/30 text-emerald-400' : 
+                                                      (step.score || 0) >= 70 ? 'bg-[#2e1d05] border-yellow-500/30 text-yellow-400' : 
+                                                      'bg-[#2c0b0e] border-red-500/30 text-red-400'}
+                                                 `}>
+                                                     <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                                                        {step.isHumanGraded ? (
+                                                            <span className="flex items-center gap-1 text-yellow-400"><span className="material-symbols-outlined text-[14px]">person_edit</span> Human</span>
+                                                        ) : (
+                                                            <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">auto_awesome</span> AI Graded</span>
+                                                        )}
+                                                     </span>
+                                                     <div className="w-px h-3 bg-current opacity-20"></div>
+                                                     <span className="font-mono font-bold">{step.score}/100</span>
+                                                 </div>
+                                                 
+                                                 <div className="text-xs text-slate-500 max-w-xs text-center italic opacity-80 animate-fade-in-up">
+                                                     "{step.isHumanGraded ? step.humanNote : step.content}"
+                                                 </div>
+
+                                                 {step.gradingHistory && step.gradingHistory.length > 1 && (
+                                                     <div className="text-[10px] text-slate-600 bg-surface-dark px-2 py-0.5 rounded border border-surface-border mt-1">
+                                                         {step.gradingHistory.length} revisions available
+                                                     </div>
+                                                 )}
+                                             </div>
                                          )}
                                      </div>
                                 </div>
@@ -442,6 +540,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                 {!isScoreStep && idx !== localLogs.length - 1 && localLogs[idx+1].role !== 'system' && (
                                     <div className="absolute left-[11px] top-8 bottom-[-24px] w-px bg-surface-border group-last:hidden"></div>
                                 )}
+                                
                                 <div className={`absolute left-0 top-0 size-6 rounded-full border-2 flex items-center justify-center z-10 
                                     ${step.role === 'agent' ? 'border-primary bg-[#111722]' : 
                                       step.role === 'system' ? 'border-slate-600 bg-slate-600' : 
@@ -450,9 +549,13 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                     {step.role === 'interviewer' && <span className="material-symbols-outlined text-[14px] text-emerald-500">person</span>}
                                     {step.role === 'system' && <span className="material-symbols-outlined text-[14px] text-white">terminal</span>}
                                 </div>
+
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-baseline justify-between">
-                                        <span className={`text-xs font-bold uppercase tracking-wider ${step.role === 'agent' ? 'text-primary' : step.role === 'system' ? 'text-slate-500' : 'text-emerald-400'}`}>
+                                        <span className={`text-xs font-bold uppercase tracking-wider 
+                                            ${step.role === 'agent' ? 'text-primary' : 
+                                              step.role === 'system' ? 'text-slate-500' : 
+                                              'text-emerald-400'}`}>
                                             {step.role}
                                         </span>
                                         <span className="text-[10px] font-mono text-slate-600">{step.timestamp}</span>
@@ -467,6 +570,10 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                             </div>
                         );
                     })}
+                    
+                    {/* Pending Skeleton State */}
+                    {pendingRole && <LoadingSkeleton role={pendingRole} />}
+                    
                     <div ref={scrollEndRef}></div>
                 </div>
                 
@@ -480,32 +587,39 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                             </div>
                             <div className="flex gap-2">
                                 <Button variant="ghost" onClick={() => setShowRerunConfirm(false)}>Cancel</Button>
-                                <Button onClick={() => { setOriginalLogs(JSON.parse(JSON.stringify(localLogs))); setShowRerunConfirm(false); executeRegradeLoop(0); }} icon="check_circle">Yes, Execute</Button>
+                                <Button onClick={handleFullReRun} icon="check_circle">Yes, Execute</Button>
                             </div>
                         </div>
                     ) : (
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
-                                <span className="text-xs text-slate-500">
-                                    {run.status === 'running' ? 'Live Streaming...' : isLocked ? 'Transcript Locked' : 'Review Mode Active'}
-                                </span>
+                                {isGradingMode ? (
+                                    <span className="text-xs text-yellow-500 font-bold flex items-center gap-2 animate-pulse">
+                                        <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                                        Editing Scores...
+                                    </span>
+                                ) : (
+                                    <span className="text-xs text-slate-500">
+                                        {run.status === 'running' ? 'Live Streaming...' : 'Read-only view'}
+                                    </span>
+                                )}
                             </div>
                             <div className="flex gap-3">
-                                {/* Conditional Action Button based on Certificate Status */}
-                                {run.isCertified ? (
-                                    <Button variant="secondary" icon="verified" onClick={() => navigate(`/certificate/${run.id}`)}>
-                                        View Certificate
-                                    </Button>
-                                ) : (
-                                    run.status === 'pass' && (
-                                        <Button variant="primary" icon="approval" onClick={handleIssueCertificate} disabled={isRunningFullRegrade}>
-                                            Issue Certificate
-                                        </Button>
-                                    )
-                                )}
-                                
-                                {!run.isCertified && (
+                                {isGradingMode ? (
                                     <>
+                                        <Button variant="ghost" onClick={() => setIsGradingMode(false)}>Cancel</Button>
+                                        <Button onClick={handleSaveGrades} icon="save" className="bg-yellow-500 hover:bg-yellow-400 text-black border-transparent">Save Grades</Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button variant="secondary" icon="fact_check" onClick={() => setIsGradingMode(true)} disabled={isRunningFullRegrade || run.status === 'running'}>
+                                            Human Review
+                                        </Button>
+                                        {run.status === 'pass' && (
+                                            <Button variant="secondary" icon="verified" onClick={() => navigate(`/certificate/${run.id}`)} disabled={isRunningFullRegrade}>
+                                                View Certificate
+                                            </Button>
+                                        )}
                                         <Button variant="secondary" icon="download" disabled={isRunningFullRegrade || run.status === 'running'}>Export</Button>
                                         <Button icon="replay" onClick={() => setShowRerunConfirm(true)} disabled={isRunningFullRegrade || run.status === 'running'}>Re-run</Button>
                                     </>

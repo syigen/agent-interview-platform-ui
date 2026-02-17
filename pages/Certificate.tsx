@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button, Card } from '../components/ui/Common';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
@@ -6,17 +6,34 @@ import { RunDetailsPanel } from '../components/RunDetailsPanel';
 import { Run } from '../types';
 import { useAppSelector } from '../store/hooks';
 import { RequestsInbox } from '../components/RequestsInbox';
-import { certificates } from '../data/certificates';
+import { certificates as staticCertificates } from '../data/certificates';
 
 export const CertificateList: React.FC = () => {
     const navigate = useNavigate();
     const requests = useAppSelector((state) => state.accessRequests.items);
+    const runs = useAppSelector((state) => state.runs.items);
     const unreadCount = requests.filter(r => r.status === 'unread').length;
     
     const [viewingLog, setViewingLog] = useState<Run | null>(null);
     const [showGuide, setShowGuide] = useState(false);
     const [showInbox, setShowInbox] = useState(false);
     
+    // Merge static certificates with passed runs
+    const allCertificates = useMemo(() => {
+        const dynamicCertificates = runs
+            .filter(r => r.status === 'pass')
+            .map(r => ({
+                id: r.id,
+                agent: r.agentName,
+                date: r.timestamp === 'Just now' ? new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : r.timestamp,
+                score: r.score || 0,
+                template: 'Evaluation Run', // Default name for runs converted to certs
+                isDynamic: true
+            }));
+        
+        return [...dynamicCertificates, ...staticCertificates];
+    }, [runs]);
+
     const getScoreTheme = (score: number) => {
         if (score >= 90) return {
             border: '!border-emerald-500/30',
@@ -121,7 +138,7 @@ export const CertificateList: React.FC = () => {
                          >
                             Access Requests
                             {unreadCount > 0 && (
-                                <span className="absolute -top-1 -right-1 size-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-background-dark">
+                                <span className="absolute -top-1 -right-1 size-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-background-dark animate-bounce">
                                     {unreadCount}
                                 </span>
                             )}
@@ -131,7 +148,7 @@ export const CertificateList: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {certificates.map((cert) => {
+                    {allCertificates.map((cert) => {
                         const theme = getScoreTheme(cert.score);
                         return (
                             <Card 
@@ -176,14 +193,20 @@ export const CertificateList: React.FC = () => {
                                             icon="description"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setViewingLog({
-                                                    id: cert.id,
-                                                    agentId: 'AGT-' + cert.id.split('-')[1],
-                                                    agentName: cert.agent,
-                                                    timestamp: cert.date,
-                                                    status: 'pass',
-                                                    score: cert.score
-                                                });
+                                                const relatedRun = runs.find(r => r.id === cert.id);
+                                                if (relatedRun) {
+                                                    setViewingLog(relatedRun);
+                                                } else {
+                                                    // Fallback for static certificates
+                                                    setViewingLog({
+                                                        id: cert.id,
+                                                        agentId: 'AGT-' + cert.id.split('-')[1],
+                                                        agentName: cert.agent,
+                                                        timestamp: cert.date,
+                                                        status: 'pass',
+                                                        score: cert.score
+                                                    });
+                                                }
                                             }}
                                         >
                                             View Transcript
