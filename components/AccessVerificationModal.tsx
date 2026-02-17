@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Input, Textarea } from './ui/Common';
-import { useAccessRequests } from '../context/AccessRequestContext';
+import { useAppDispatch } from '../store/hooks';
+import { addRequest } from '../store/slices/accessRequestSlice';
 
 interface AccessVerificationModalProps {
     isOpen: boolean;
@@ -11,7 +12,7 @@ interface AccessVerificationModalProps {
 }
 
 export const AccessVerificationModal: React.FC<AccessVerificationModalProps> = ({ isOpen, onClose, onSuccess, certId, certName }) => {
-    const { addRequest } = useAccessRequests();
+    const dispatch = useAppDispatch();
     const [mode, setMode] = useState<'verify' | 'request'>('verify');
     
     // Verify State
@@ -47,13 +48,13 @@ export const AccessVerificationModal: React.FC<AccessVerificationModalProps> = (
         
         setIsChecking(true);
         setTimeout(() => {
-            addRequest({
+            dispatch(addRequest({
                 certificateId: certId,
                 certificateName: certName,
                 requesterName: reqName,
                 requesterContact: reqContact,
                 message: reqMsg
-            });
+            }));
             setIsChecking(false);
             setReqSuccess(true);
         }, 1000);

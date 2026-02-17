@@ -1,8 +1,5 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { TemplateProvider } from './context/TemplateContext';
-import { SettingsProvider } from './context/SettingsContext';
-import { AccessRequestProvider } from './context/AccessRequestContext';
 import { Gateway } from './pages/Gateway';
 import { Dashboard } from './pages/Dashboard';
 import { Templates } from './pages/Templates';
@@ -14,25 +11,19 @@ import { CertificateDetail } from './pages/CertificateDetail';
 
 const App: React.FC = () => {
   return (
-    <SettingsProvider>
-        <TemplateProvider>
-            <AccessRequestProvider>
-                <Router>
-                <Routes>
-                    <Route path="/" element={<Gateway />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/templates/*" element={<Templates />} />
-                    <Route path="/runs" element={<AgentRuns />} />
-                    <Route path="/session" element={<Console />} />
-                    <Route path="/interview" element={<Interview />} />
-                    <Route path="/certificates" element={<CertificateList />} />
-                    <Route path="/certificate/:id" element={<CertificateDetail />} />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-                </Router>
-            </AccessRequestProvider>
-        </TemplateProvider>
-    </SettingsProvider>
+    <Router>
+      <Routes>
+          <Route path="/" element={<Gateway />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/templates/*" element={<Templates />} />
+          <Route path="/runs" element={<AgentRuns />} />
+          <Route path="/session" element={<Console />} />
+          <Route path="/interview" element={<Interview />} />
+          <Route path="/certificates" element={<CertificateList />} />
+          <Route path="/certificate/:id" element={<CertificateDetail />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
   );
 };
 

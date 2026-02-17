@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input, Button } from './ui/Common';
-import { useSettings } from '../context/SettingsContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { setInterviewerName } from '../store/slices/settingsSlice';
 
 interface SettingsPanelProps {
     isOpen: boolean;
@@ -8,7 +9,8 @@ interface SettingsPanelProps {
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
-    const { interviewerName, setInterviewerName } = useSettings();
+    const dispatch = useAppDispatch();
+    const interviewerName = useAppSelector((state) => state.settings.interviewerName);
 
     if (!isOpen) return null;
 
@@ -52,7 +54,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                         <Input 
                             label="Display Name" 
                             value={interviewerName}
-                            onChange={(e) => setInterviewerName(e.target.value)}
+                            onChange={(e) => dispatch(setInterviewerName(e.target.value))}
                             placeholder="Enter your name..."
                         />
                         

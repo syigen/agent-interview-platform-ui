@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { SettingsPanel } from './SettingsPanel';
-import { useSettings } from '../context/SettingsContext';
+import { useAppSelector } from '../store/hooks';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const { interviewerName } = useSettings();
+  const interviewerName = useAppSelector((state) => state.settings.interviewerName);
 
   const isActive = (path: string) => location.pathname.startsWith(path) ? 'text-primary' : 'text-slate-400 hover:text-white';
 

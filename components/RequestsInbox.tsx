@@ -1,5 +1,6 @@
 import React from 'react';
-import { useAccessRequests } from '../context/AccessRequestContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { markAsRead } from '../store/slices/accessRequestSlice';
 
 interface RequestsInboxProps {
     isOpen: boolean;
@@ -7,7 +8,8 @@ interface RequestsInboxProps {
 }
 
 export const RequestsInbox: React.FC<RequestsInboxProps> = ({ isOpen, onClose }) => {
-    const { requests, markAsRead } = useAccessRequests();
+    const dispatch = useAppDispatch();
+    const requests = useAppSelector((state) => state.accessRequests.items);
     
     if (!isOpen) return null;
 
@@ -56,7 +58,7 @@ export const RequestsInbox: React.FC<RequestsInboxProps> = ({ isOpen, onClose })
                                             <span className="material-symbols-outlined text-[14px]">reply</span> Reply
                                         </a>
                                         {req.status === 'unread' && (
-                                            <button onClick={() => markAsRead(req.id)} className="text-xs flex items-center gap-1 text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
+                                            <button onClick={() => dispatch(markAsRead(req.id))} className="text-xs flex items-center gap-1 text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
                                                 <span className="material-symbols-outlined text-[14px]">check</span> Mark as Read
                                             </button>
                                         )}

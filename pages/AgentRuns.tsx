@@ -4,7 +4,7 @@ import { Card, Button, Input, Badge } from '../components/ui/Common';
 import { Run } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
-import { useTemplates } from '../context/TemplateContext';
+import { useAppSelector } from '../store/hooks';
 
 const dummyRuns: Run[] = [
   { id: 'RUN-3920', agentId: 'AGT-774', agentName: 'Support-Genius-v2', timestamp: 'Just now', status: 'running' },
@@ -21,7 +21,7 @@ const dummyRuns: Run[] = [
 
 export const AgentRuns: React.FC = () => {
     const navigate = useNavigate();
-    const { templates } = useTemplates();
+    const templates = useAppSelector((state) => state.templates.items);
     const [showGenerator, setShowGenerator] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRun, setSelectedRun] = useState<Run | null>(null);

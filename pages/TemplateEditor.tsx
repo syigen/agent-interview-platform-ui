@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Button, Input, Textarea, Card } from '../components/ui/Common';
-import { useTemplates } from '../context/TemplateContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { addTemplate, updateTemplate } from '../store/slices/templateSlice';
 import { Template } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
 import { StepIndicator } from '../components/templates/StepIndicator';
@@ -11,7 +12,9 @@ import { CriteriaBuilder } from '../components/templates/CriteriaBuilder';
 export const TemplateEditor: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { templates, addTemplate, updateTemplate } = useTemplates();
+    const dispatch = useAppDispatch();
+    const templates = useAppSelector((state) => state.templates.items);
+    
     const [step, setStep] = useState(1);
     const [isGenerating, setIsGenerating] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -137,9 +140,9 @@ export const TemplateEditor: React.FC = () => {
         if (!validateStep(2)) { setStep(2); return; }
 
         if (isEditMode && id) {
-            updateTemplate(id, data);
+            dispatch(updateTemplate({ id, changes: data }));
         } else {
-            addTemplate(data);
+            dispatch(addTemplate(data));
         }
         navigate('/templates');
     };

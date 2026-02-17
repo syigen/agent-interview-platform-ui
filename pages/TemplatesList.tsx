@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Input, Card } from '../components/ui/Common';
-import { useTemplates } from '../context/TemplateContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { deleteTemplate, duplicateTemplate, updateTemplate } from '../store/slices/templateSlice';
 import { TemplateCard } from '../components/templates/TemplateCard';
 
 export const TemplatesList: React.FC = () => {
     const navigate = useNavigate();
-    const { templates, deleteTemplate, duplicateTemplate, updateTemplate } = useTemplates();
+    const dispatch = useAppDispatch();
+    const templates = useAppSelector((state) => state.templates.items);
+    
     const [filterText, setFilterText] = useState('');
     const [difficulty, setDifficulty] = useState<string>('All');
 
@@ -19,10 +22,10 @@ export const TemplatesList: React.FC = () => {
     });
 
     const handleDuplicate = (id: string) => {
-        const newId = duplicateTemplate(id);
-        if (newId) {
-            navigate(`/templates/edit/${newId}`);
-        }
+        // Generate ID here to navigate immediately
+        const newId = `TMP-${Math.floor(1000 + Math.random() * 9000)}`;
+        dispatch(duplicateTemplate({ id, newId }));
+        navigate(`/templates/edit/${newId}`);
     };
 
     return (
@@ -87,9 +90,9 @@ export const TemplatesList: React.FC = () => {
                                     <TemplateCard 
                                         key={t.id} 
                                         template={t} 
-                                        onDelete={deleteTemplate} 
+                                        onDelete={(id) => dispatch(deleteTemplate(id))} 
                                         onDuplicate={handleDuplicate}
-                                        onStatusChange={(id, status) => updateTemplate(id, { status })}
+                                        onStatusChange={(id, status) => dispatch(updateTemplate({ id, changes: { status } }))}
                                     />
                                 ))
                             ) : (

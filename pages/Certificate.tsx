@@ -4,13 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
 import { Run } from '../types';
-import { useAccessRequests } from '../context/AccessRequestContext';
+import { useAppSelector } from '../store/hooks';
 import { RequestsInbox } from '../components/RequestsInbox';
 import { certificates } from '../data/certificates';
 
 export const CertificateList: React.FC = () => {
     const navigate = useNavigate();
-    const { unreadCount } = useAccessRequests();
+    const requests = useAppSelector((state) => state.accessRequests.items);
+    const unreadCount = requests.filter(r => r.status === 'unread').length;
+    
     const [viewingLog, setViewingLog] = useState<Run | null>(null);
     const [showGuide, setShowGuide] = useState(false);
     const [showInbox, setShowInbox] = useState(false);
