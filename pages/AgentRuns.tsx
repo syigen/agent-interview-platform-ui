@@ -7,20 +7,20 @@ import { RunDetailsPanel } from '../components/RunDetailsPanel';
 import { RunSimulationModal } from '../components/RunSimulationModal';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { addRun, updateRunStatus } from '../store/slices/runSlice';
-import { geminiService } from '../services/GeminiService';
+import { llmService } from '../services/LLMService';
 
 export const AgentRuns: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const runs = useAppSelector((state) => state.runs.items);
     const templates = useAppSelector((state) => state.templates.items);
-    
+
     const [showGenerator, setShowGenerator] = useState(false);
     const [showSimulationModal, setShowSimulationModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [viewingRunId, setViewingRunId] = useState<string | null>(null);
 
-    const filteredRuns = runs.filter(run => 
+    const filteredRuns = runs.filter(run =>
         run.agentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         run.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         run.agentId.toLowerCase().includes(searchTerm.toLowerCase())
@@ -36,7 +36,7 @@ export const AgentRuns: React.FC = () => {
         const runId = `RUN-${Math.floor(Math.random() * 9000) + 1000}`;
         const agentName = `Simulated-Agent-${selectedTemplate.id.split('-')[1]}`;
         const totalSteps = selectedTemplate.criteria ? selectedTemplate.criteria.length : 0;
-        
+
         dispatch(addRun({
             id: runId,
             agentId: 'SIM-AGENT-01',
@@ -48,7 +48,7 @@ export const AgentRuns: React.FC = () => {
         }));
 
         setViewingRunId(runId);
-        
+
         const chatSteps: ChatStep[] = [];
         chatSteps.push({
             id: 'init',
@@ -66,7 +66,7 @@ export const AgentRuns: React.FC = () => {
             if (selectedTemplate.criteria) {
                 for (let i = 0; i < totalSteps; i++) {
                     const criterion = selectedTemplate.criteria[i];
-                    
+
                     await new Promise(r => setTimeout(r, 1000));
                     const questionStep: ChatStep = {
                         id: `q-${i}`,
@@ -79,14 +79,14 @@ export const AgentRuns: React.FC = () => {
                     dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
 
                     await new Promise(r => setTimeout(r, 2000));
-                    const agentAnswer = await geminiService.simulateAgentResponse(
+                    const agentAnswer = await llmService.simulateAgentResponse(
                         {
                             skills: selectedTemplate.skills,
                             description: selectedTemplate.description || ''
                         },
                         criterion.prompt
                     );
-                    
+
                     const answerStep: ChatStep = {
                         id: `a-${i}`,
                         role: 'agent',
@@ -99,7 +99,7 @@ export const AgentRuns: React.FC = () => {
                     dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
 
                     await new Promise(r => setTimeout(r, 1200));
-                    const gradeResult = await geminiService.evaluateResponse(
+                    const gradeResult = await llmService.evaluateResponse(
                         criterion.prompt,
                         criterion.expected,
                         agentAnswer
@@ -132,7 +132,7 @@ export const AgentRuns: React.FC = () => {
             await new Promise(r => setTimeout(r, 800));
             const finalAvg = potentialScore > 0 ? Math.round(earnedScore / (totalSteps)) : 0;
             const finalStatus = finalAvg >= 70 ? 'pass' : 'fail';
-            
+
             chatSteps.push({
                 id: 'end',
                 role: 'system',
@@ -141,9 +141,9 @@ export const AgentRuns: React.FC = () => {
                 status: finalStatus
             });
 
-            dispatch(updateRunStatus({ 
-                id: runId, 
-                status: finalStatus, 
+            dispatch(updateRunStatus({
+                id: runId,
+                status: finalStatus,
                 score: finalAvg,
                 steps: [...chatSteps]
             }));
@@ -158,26 +158,26 @@ export const AgentRuns: React.FC = () => {
     return (
         <Layout>
             <RunDetailsPanel run={viewingRun} onClose={() => setViewingRunId(null)} />
-            <RunSimulationModal 
-                isOpen={showSimulationModal} 
+            <RunSimulationModal
+                isOpen={showSimulationModal}
                 onClose={() => setShowSimulationModal(false)}
                 onStart={handleStartSimulation}
             />
 
             <div className="p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
-                 <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
-                     <div>
+                <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
+                    <div>
                         <h1 className="text-3xl font-black text-white">Agent Runs & Results</h1>
                         <p className="text-slate-400">Comprehensive audit log of all agent evaluation attempts.</p>
-                     </div>
-                     <div className="flex flex-col sm:flex-row gap-3">
-                         <Button variant="secondary" icon="smart_toy" onClick={() => setShowSimulationModal(true)}>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Button variant="secondary" icon="smart_toy" onClick={() => setShowSimulationModal(true)}>
                             Run Simulation
-                         </Button>
-                         <Button icon="bolt" onClick={() => setShowGenerator(!showGenerator)}>
+                        </Button>
+                        <Button icon="bolt" onClick={() => setShowGenerator(!showGenerator)}>
                             {showGenerator ? 'Close' : 'Generate Prompt'}
-                         </Button>
-                     </div>
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Generator Section */}
@@ -207,45 +207,45 @@ export const AgentRuns: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex-1 flex flex-col gap-6">
-                             <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-2xl p-6">
+                            <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-2xl p-6">
                                 <h3 className="text-white font-bold mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-indigo-400">info</span> How it works</h3>
                                 <ul className="space-y-2 text-sm text-indigo-200/80">
                                     <li>• The generated prompt contains a cryptographic challenge.</li>
                                     <li>• Access is strictly limited by time and attempts.</li>
                                 </ul>
-                             </div>
-                             <div className="bg-black/40 border border-primary/50 rounded-2xl p-0 overflow-hidden shadow-2xl shadow-primary/10">
-                                 <div className="bg-black/50 p-4 border-b border-white/5 flex justify-between items-center">
+                            </div>
+                            <div className="bg-black/40 border border-primary/50 rounded-2xl p-0 overflow-hidden shadow-2xl shadow-primary/10">
+                                <div className="bg-black/50 p-4 border-b border-white/5 flex justify-between items-center">
                                     <span className="text-xs font-bold text-primary uppercase flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Generated String</span>
                                     <span className="text-[10px] text-slate-500 font-mono">ID: 8X29-B422</span>
-                                 </div>
-                                 <div className="p-5 flex flex-col gap-4">
-                                     <div className="font-mono text-sm text-slate-300 break-all bg-white/5 p-3 rounded border border-white/5">
+                                </div>
+                                <div className="p-5 flex flex-col gap-4">
+                                    <div className="font-mono text-sm text-slate-300 break-all bg-white/5 p-3 rounded border border-white/5">
                                         PROMPT-AGENT-8X29-B422-VERIFIED-ACCESS-SIG-7782-9901-AB
-                                     </div>
-                                     <Button variant="secondary" icon="content_copy" className="w-full">Copy to Clipboard</Button>
-                                 </div>
-                             </div>
+                                    </div>
+                                    <Button variant="secondary" icon="content_copy" className="w-full">Copy to Clipboard</Button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
-                
+
                 <Card className="flex flex-col gap-0 overflow-hidden">
                     <div className="p-5 border-b border-surface-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-dark">
-                         <div className="flex items-center gap-2">
-                             <span className="material-symbols-outlined text-slate-500">history</span>
-                             <h3 className="font-bold text-white">Execution Log</h3>
-                             <span className="bg-surface-border text-slate-400 text-xs px-2 py-0.5 rounded-full">{filteredRuns.length}</span>
-                         </div>
-                         <div className="w-full sm:w-72">
-                            <Input 
-                                icon="search" 
-                                placeholder="Search by Agent Name or ID..." 
+                        <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-slate-500">history</span>
+                            <h3 className="font-bold text-white">Execution Log</h3>
+                            <span className="bg-surface-border text-slate-400 text-xs px-2 py-0.5 rounded-full">{filteredRuns.length}</span>
+                        </div>
+                        <div className="w-full sm:w-72">
+                            <Input
+                                icon="search"
+                                placeholder="Search by Agent Name or ID..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="bg-[#111620]"
                             />
-                         </div>
+                        </div>
                     </div>
 
                     {/* Desktop Table View */}
@@ -263,8 +263,8 @@ export const AgentRuns: React.FC = () => {
                             <tbody className="divide-y divide-surface-border bg-surface-dark/50">
                                 {filteredRuns.length > 0 ? (
                                     filteredRuns.map((run) => (
-                                        <tr 
-                                            key={run.id} 
+                                        <tr
+                                            key={run.id}
                                             className="group hover:bg-surface-hover transition-colors cursor-pointer"
                                             onClick={() => setViewingRunId(run.id)}
                                         >
@@ -289,8 +289,8 @@ export const AgentRuns: React.FC = () => {
                                                 {run.score !== undefined ? (
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-full max-w-[60px] h-1.5 bg-surface-border rounded-full overflow-hidden">
-                                                            <div 
-                                                                className={`h-full rounded-full ${run.score > 80 ? 'bg-emerald-500' : run.score > 50 ? 'bg-yellow-500' : 'bg-red-500'}`} 
+                                                            <div
+                                                                className={`h-full rounded-full ${run.score > 80 ? 'bg-emerald-500' : run.score > 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
                                                                 style={{ width: `${run.score}%` }}
                                                             ></div>
                                                         </div>
@@ -305,8 +305,8 @@ export const AgentRuns: React.FC = () => {
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end items-center gap-1">
                                                     {run.status === 'pass' && (
-                                                        <button 
-                                                            className="text-emerald-500 hover:text-emerald-400 transition-colors p-2 rounded hover:bg-emerald-500/10" 
+                                                        <button
+                                                            className="text-emerald-500 hover:text-emerald-400 transition-colors p-2 rounded hover:bg-emerald-500/10"
                                                             title="View Certificate"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -316,8 +316,8 @@ export const AgentRuns: React.FC = () => {
                                                             <span className="material-symbols-outlined text-[20px]">verified</span>
                                                         </button>
                                                     )}
-                                                    <button 
-                                                        className="text-slate-500 hover:text-white transition-colors p-2 rounded hover:bg-white/5" 
+                                                    <button
+                                                        className="text-slate-500 hover:text-white transition-colors p-2 rounded hover:bg-white/5"
                                                         title="View Report"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -345,8 +345,8 @@ export const AgentRuns: React.FC = () => {
                     <div className="md:hidden flex flex-col p-4 gap-3 bg-[#111722]">
                         {filteredRuns.length > 0 ? (
                             filteredRuns.map((run) => (
-                                <div 
-                                    key={run.id} 
+                                <div
+                                    key={run.id}
                                     onClick={() => setViewingRunId(run.id)}
                                     className="bg-surface-dark border border-surface-border rounded-lg p-4 active:bg-[#1a2332] active:scale-[0.98] transition-all"
                                 >
@@ -371,7 +371,7 @@ export const AgentRuns: React.FC = () => {
                                         <div className="text-xs text-slate-500 font-mono self-end mb-1">{run.timestamp}</div>
                                         <div className="flex gap-2">
                                             {run.status === 'pass' && (
-                                                <button 
+                                                <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         navigate(`/certificate/${run.id}`);
@@ -389,7 +389,7 @@ export const AgentRuns: React.FC = () => {
                                 </div>
                             ))
                         ) : (
-                             <div className="text-center py-12 text-slate-500">
+                            <div className="text-center py-12 text-slate-500">
                                 No runs found matching "{searchTerm}"
                             </div>
                         )}

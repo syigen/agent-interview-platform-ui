@@ -4,7 +4,7 @@ import { Button, Input, Textarea, Card } from '../components/ui/Common';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createTemplate, updateTemplate } from '../store/slices/templateSlice';
 import { Template } from '../types';
-import { geminiService } from '../services/GeminiService';
+import { llmService } from '../services/LLMService';
 import { StepIndicator } from '../components/templates/StepIndicator';
 import { SkillSelector } from '../components/templates/SkillSelector';
 import { CriteriaBuilder } from '../components/templates/CriteriaBuilder';
@@ -163,7 +163,7 @@ export const TemplateEditor: React.FC = () => {
     const generateAICriteria = async () => {
         setIsGenerating(true);
         try {
-            const criteria = await geminiService.generateCriteria({
+            const criteria = await llmService.generateCriteria({
                 name: data.name,
                 description: data.description || '',
                 skills: data.skills,

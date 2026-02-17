@@ -6,7 +6,7 @@ import { fetchTemplates, deleteTemplate, duplicateTemplate, updateTemplate } fro
 import { addRun, updateRunStatus } from '../store/slices/runSlice';
 import { TemplateCard } from '../components/templates/TemplateCard';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
-import { geminiService } from '../services/GeminiService';
+import { llmService } from '../services/LLMService';
 import { ChatStep, Run, Template } from '../types';
 
 export const TemplatesList: React.FC = () => {
@@ -100,7 +100,7 @@ export const TemplatesList: React.FC = () => {
 
                     // Answer
                     await new Promise(r => setTimeout(r, 1200)); // Thinking delay
-                    const agentAnswer = await geminiService.simulateAgentResponse(
+                    const agentAnswer = await llmService.simulateAgentResponse(
                         {
                             skills: selectedTemplate.skills,
                             description: selectedTemplate.description || ''
@@ -121,7 +121,7 @@ export const TemplatesList: React.FC = () => {
 
                     // Grading
                     await new Promise(r => setTimeout(r, 1000));
-                    const gradeResult = await geminiService.evaluateResponse(
+                    const gradeResult = await llmService.evaluateResponse(
                         criterion.prompt,
                         criterion.expected,
                         agentAnswer

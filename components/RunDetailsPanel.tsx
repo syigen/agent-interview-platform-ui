@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Textarea, Badge } from './ui/Common';
 import { Run, ChatStep, GradeEntry } from '../types';
-import { geminiService } from '../services/GeminiService';
+import { llmService } from '../services/LLMService';
 
 // Mock logs data for demonstration
 const dummyLogs: Record<string, ChatStep[]> = {
@@ -34,16 +34,16 @@ const LoadingSkeleton = ({ role }: { role: 'agent' | 'system' }) => (
             <span className={`material-symbols-outlined text-[14px] ${role === 'agent' ? 'text-primary' : 'text-slate-400'}`}>{role === 'agent' ? 'smart_toy' : 'terminal'}</span>
         </div>
         <div className="flex flex-col gap-2">
-             <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
                 <div className="h-3 w-20 bg-surface-border/50 rounded animate-pulse"></div>
                 <div className="h-3 w-12 bg-surface-border/30 rounded animate-pulse"></div>
-             </div>
-             <div className={`p-4 rounded-lg border ${role === 'agent' ? 'border-primary/20 bg-primary/5' : 'border-surface-border bg-surface-dark'}`}>
+            </div>
+            <div className={`p-4 rounded-lg border ${role === 'agent' ? 'border-primary/20 bg-primary/5' : 'border-surface-border bg-surface-dark'}`}>
                 <div className="space-y-2.5">
                     <div className={`h-2 bg-current opacity-20 rounded animate-pulse ${role === 'agent' ? 'text-primary w-3/4' : 'text-slate-400 w-1/2'}`}></div>
                     <div className={`h-2 bg-current opacity-10 rounded animate-pulse ${role === 'agent' ? 'text-primary w-1/2' : 'text-slate-400 w-1/3'}`}></div>
                 </div>
-             </div>
+            </div>
         </div>
     </div>
 );
@@ -57,38 +57,38 @@ interface GradingHistoryItemProps {
 const GradingHistoryItem: React.FC<GradingHistoryItemProps> = ({ entry, isElected, onElect }) => {
     return (
         <div className={`relative flex flex-col p-4 rounded-xl border transition-all duration-300 ml-0 ${isElected ? 'bg-[#1a2332] border-primary shadow-lg opacity-100 z-10' : 'bg-[#111722] border-surface-border opacity-60 hover:opacity-100 grayscale hover:grayscale-0'}`}>
-             <div className="flex justify-between items-start mb-2">
-                 <div className="flex items-center gap-3">
-                     <div className={`size-6 rounded-full flex items-center justify-center border ${isElected ? 'bg-primary border-primary text-white' : 'bg-surface-dark border-slate-600 text-slate-500'}`}>
-                         <span className="material-symbols-outlined text-[14px]">
+            <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center gap-3">
+                    <div className={`size-6 rounded-full flex items-center justify-center border ${isElected ? 'bg-primary border-primary text-white' : 'bg-surface-dark border-slate-600 text-slate-500'}`}>
+                        <span className="material-symbols-outlined text-[14px]">
                             {isElected ? 'check' : (entry.source === 'ai' ? 'smart_toy' : 'person')}
-                         </span>
-                     </div>
-                     <div className="flex flex-col">
-                         <span className={`text-xs font-bold uppercase tracking-wider ${isElected ? 'text-primary' : 'text-slate-500'}`}>
-                             {entry.source === 'ai' ? 'Automated Evaluation' : 'Human Review'}
-                         </span>
-                         <span className="text-[10px] text-slate-500 font-mono">{entry.timestamp}</span>
-                     </div>
-                 </div>
-                 <div className={`text-xl font-black ${entry.score >= 70 ? 'text-white' : 'text-red-400'}`}>{entry.score}</div>
-             </div>
-             
-             <p className="text-sm text-slate-300 mb-3 pl-9">{entry.reasoning}</p>
+                        </span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className={`text-xs font-bold uppercase tracking-wider ${isElected ? 'text-primary' : 'text-slate-500'}`}>
+                            {entry.source === 'ai' ? 'Automated Evaluation' : 'Human Review'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">{entry.timestamp}</span>
+                    </div>
+                </div>
+                <div className={`text-xl font-black ${entry.score >= 70 ? 'text-white' : 'text-red-400'}`}>{entry.score}</div>
+            </div>
 
-             {!isElected && (
-                 <div className="pl-9">
-                    <Button 
-                        variant="ghost" 
-                        className="text-xs h-7 px-3 border border-surface-border hover:border-primary hover:bg-primary/10" 
+            <p className="text-sm text-slate-300 mb-3 pl-9">{entry.reasoning}</p>
+
+            {!isElected && (
+                <div className="pl-9">
+                    <Button
+                        variant="ghost"
+                        className="text-xs h-7 px-3 border border-surface-border hover:border-primary hover:bg-primary/10"
                         icon="check_circle"
                         onClick={onElect}
                     >
                         Elect as Final
                     </Button>
-                 </div>
-             )}
-         </div>
+                </div>
+            )}
+        </div>
     );
 };
 
@@ -112,27 +112,27 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
                 </div>
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider group-hover/form:text-white transition-colors">Add New Review</h4>
             </div>
-            
+
             <div className="pl-9 space-y-3">
                 <div className="flex flex-wrap items-center gap-4">
                     <span className="text-xs font-bold text-slate-500">Score:</span>
-                    <input 
-                        type="number" 
+                    <input
+                        type="number"
                         className="bg-[#0a0e17] border border-surface-border rounded px-2 py-1 text-white text-sm w-20 text-center focus:border-primary outline-none"
                         placeholder="0-100"
                         value={score}
                         onChange={(e) => setScore(Number(e.target.value))}
                         min={0} max={100}
                     />
-                    <input 
-                        type="range" 
+                    <input
+                        type="range"
                         className="flex-1 accent-primary h-2 bg-surface-border rounded-lg appearance-none cursor-pointer min-w-[120px]"
                         min="0" max="100"
                         value={score}
                         onChange={(e) => setScore(Number(e.target.value))}
                     />
                 </div>
-                <textarea 
+                <textarea
                     className="w-full bg-[#0a0e17] border border-surface-border rounded-lg p-3 text-sm text-white resize-none focus:border-primary outline-none"
                     rows={2}
                     placeholder="Enter reasoning for new grade..."
@@ -140,7 +140,7 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
                     onChange={(e) => setNote(e.target.value)}
                 ></textarea>
                 <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-2 gap-2">
-                     <Button 
+                    <Button
                         variant="secondary"
                         className="text-xs h-8 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/50 justify-center"
                         icon="smart_toy"
@@ -150,8 +150,8 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
                         {isProcessing ? 'Evaluating...' : 'Re-evaluate by AI'}
                     </Button>
 
-                    <Button 
-                        icon="add_comment" 
+                    <Button
+                        icon="add_comment"
                         className="text-xs h-8 justify-center"
                         onClick={() => {
                             if (note.trim()) {
@@ -164,7 +164,7 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
                     </Button>
                 </div>
             </div>
-         </div>
+        </div>
     );
 }
 
@@ -173,13 +173,13 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
     const [localLogs, setLocalLogs] = useState<ChatStep[]>([]);
     const [originalLogs, setOriginalLogs] = useState<ChatStep[] | null>(null);
     const scrollEndRef = useRef<HTMLDivElement>(null);
-    
+
     const [isGradingMode, setIsGradingMode] = useState(false);
     const [showRerunConfirm, setShowRerunConfirm] = useState(false);
     const [regradingStepId, setRegradingStepId] = useState<string | null>(null);
     const [isRunningFullRegrade, setIsRunningFullRegrade] = useState(false);
     const [rerunError, setRerunError] = useState<RerunError | null>(null);
-    
+
     // Progress state for re-runs
     const [regradeProgress, setRegradeProgress] = useState(0);
     const [currentRegradeIndex, setCurrentRegradeIndex] = useState(-1);
@@ -197,7 +197,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
             }
 
             setLocalLogs(JSON.parse(JSON.stringify(logs)));
-            
+
             // Auto-scroll on update if running
             if (run.status === 'running') {
                 setTimeout(() => {
@@ -208,11 +208,11 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
     }, [run]);
 
     if (!run) return null;
-    
+
     // Calculate Progress
     const stepsCount = localLogs.length;
-    const totalEstimatedSteps = run.totalSteps ? (run.totalSteps * 3) + 2 : (Math.max(stepsCount + 2, 20)); 
-    
+    const totalEstimatedSteps = run.totalSteps ? (run.totalSteps * 3) + 2 : (Math.max(stepsCount + 2, 20));
+
     let displayProgress = 0;
     if (isRunningFullRegrade) {
         displayProgress = regradeProgress;
@@ -222,17 +222,17 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
 
     const lastStep = localLogs[localLogs.length - 1];
     let pendingRole: 'agent' | 'system' | null = null;
-    
+
     if (run.status === 'running' && lastStep) {
         if (lastStep.role === 'interviewer') pendingRole = 'agent';
         else if (lastStep.role === 'agent') pendingRole = 'system';
     }
 
     const scoredSteps = localLogs.filter(s => s.score !== undefined);
-    const avgScore = scoredSteps.length > 0 
-        ? Math.round(scoredSteps.reduce((acc, curr) => acc + (curr.score || 0), 0) / scoredSteps.length) 
+    const avgScore = scoredSteps.length > 0
+        ? Math.round(scoredSteps.reduce((acc, curr) => acc + (curr.score || 0), 0) / scoredSteps.length)
         : 0;
-    
+
     const updateStepGrade = (stepId: string, source: 'human' | 'ai', newScore: number, note?: string) => {
         setLocalLogs(prev => prev.map(step => {
             if (step.id !== stepId) return step;
@@ -247,12 +247,12 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
             // Preserve existing state if history is empty
             let history = step.gradingHistory ? [...step.gradingHistory] : [];
             if (history.length === 0) {
-                 history.push({
-                     source: step.isHumanGraded ? 'human' : 'ai',
-                     score: step.score || 0,
-                     reasoning: step.humanNote || step.content,
-                     timestamp: step.timestamp
-                 });
+                history.push({
+                    source: step.isHumanGraded ? 'human' : 'ai',
+                    score: step.score || 0,
+                    reasoning: step.humanNote || step.content,
+                    timestamp: step.timestamp
+                });
             }
             history.push(newEntry);
 
@@ -296,7 +296,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                 }
             }
 
-            const result = await geminiService.reEvaluateResponse(question, answer);
+            const result = await llmService.reEvaluateResponse(question, answer);
             updateStepGrade(stepId, 'ai', result.score, result.reasoning);
 
         } catch (e) {
@@ -316,7 +316,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
         const stepsToRegrade = localLogs
             .map((step, index) => ({ step, index, queueIndex: -1 }))
             .filter(({ step }) => step.role === 'system' && step.score !== undefined);
-            
+
         stepsToRegrade.forEach((item, idx) => item.queueIndex = idx);
 
         shouldContinueRef.current = true;
@@ -328,8 +328,8 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
             if (!shouldContinueRef.current) break;
 
             const { step, index } = stepsToRegrade[i];
-            
-            setCurrentRegradeIndex(index); 
+
+            setCurrentRegradeIndex(index);
             setRegradeProgress(Math.round(((i) / stepsToRegrade.length) * 100));
 
             const el = document.getElementById(`step-${step.id}`);
@@ -349,7 +349,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                 return;
             }
         }
-        
+
         setCurrentRegradeIndex(-1);
         setIsRunningFullRegrade(false);
         setRegradeProgress(100);
@@ -380,9 +380,9 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
 
     return (
         <div className="fixed inset-0 z-[100] flex justify-end">
-             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isRunningFullRegrade && run.status !== 'running' && onClose()}></div>
-             <div className="relative w-full md:max-w-3xl bg-[#111722] md:border-l border-surface-border shadow-2xl h-full flex flex-col animate-fade-in-up">
-                
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isRunningFullRegrade && run.status !== 'running' && onClose()}></div>
+            <div className="relative w-full md:max-w-3xl bg-[#111722] md:border-l border-surface-border shadow-2xl h-full flex flex-col animate-fade-in-up">
+
                 {/* Error Overlay */}
                 {rerunError && (
                     <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-fade-in-up">
@@ -421,31 +421,31 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                     <span>{run.timestamp}</span>
                                 </div>
                             </div>
-                             
-                             {/* Mobile Close Button (Top Right) */}
+
+                            {/* Mobile Close Button (Top Right) */}
                             <button onClick={onClose} disabled={isRunningFullRegrade || run.status === 'running'} className="sm:hidden p-2 -mr-2 -mt-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors disabled:opacity-50">
                                 <span className="material-symbols-outlined text-2xl">close</span>
                             </button>
                         </div>
-                        
+
                         <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0">
-                             <div className="flex flex-col items-start sm:items-end">
+                            <div className="flex flex-col items-start sm:items-end">
                                 <span className="text-[10px] font-bold uppercase text-slate-500">Current Score</span>
                                 <span className={`text-2xl md:text-3xl font-black transition-all ${avgScore > 80 ? 'text-emerald-400' : avgScore > 50 ? 'text-yellow-400' : 'text-red-400'}`}>
                                     {avgScore}
                                 </span>
-                             </div>
-                             
-                             {/* Desktop Close Button */}
-                             <button onClick={onClose} disabled={isRunningFullRegrade || run.status === 'running'} className="hidden sm:block p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors disabled:opacity-50">
+                            </div>
+
+                            {/* Desktop Close Button */}
+                            <button onClick={onClose} disabled={isRunningFullRegrade || run.status === 'running'} className="hidden sm:block p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors disabled:opacity-50">
                                 <span className="material-symbols-outlined text-2xl">close</span>
                             </button>
                         </div>
                     </div>
-                    
+
                     {(run.status === 'running' || isRunningFullRegrade) && (
                         <div className="w-full h-1 bg-surface-border relative overflow-hidden">
-                            <div 
+                            <div
                                 className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-out"
                                 style={{ width: `${displayProgress}%` }}
                             ></div>
@@ -459,7 +459,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                     {localLogs.map((step, idx) => {
                         const isScoreStep = step.role === 'system' && step.score !== undefined;
                         const isProcessing = regradingStepId === step.id;
-                        
+
                         const isPendingReRun = isRunningFullRegrade && idx > currentRegradeIndex && !isProcessing;
 
                         const containerClasses = `relative py-4 group transition-all duration-500 
@@ -468,78 +468,78 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
 
                         if (isScoreStep) {
                             // Construct valid history
-                            const history = step.gradingHistory && step.gradingHistory.length > 0 
-                                ? [...step.gradingHistory] 
-                                : [{ 
-                                    source: step.isHumanGraded ? 'human' : 'ai', 
-                                    score: step.score || 0, 
-                                    reasoning: step.humanNote || step.content, 
-                                    timestamp: step.timestamp 
-                                  } as GradeEntry];
+                            const history = step.gradingHistory && step.gradingHistory.length > 0
+                                ? [...step.gradingHistory]
+                                : [{
+                                    source: step.isHumanGraded ? 'human' : 'ai',
+                                    score: step.score || 0,
+                                    reasoning: step.humanNote || step.content,
+                                    timestamp: step.timestamp
+                                } as GradeEntry];
 
                             return (
                                 <div key={step.id} id={`step-${step.id}`} className={containerClasses}>
-                                     <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-surface-border -z-10"></div>
-                                     <div className="flex justify-center w-full">
-                                         {isGradingMode ? (
-                                             <div className="flex flex-col gap-6 w-full max-w-lg relative animate-fade-in-up">
-                                                 {/* Timeline Track */}
-                                                 <div className="absolute left-[27px] top-6 bottom-6 w-0.5 bg-surface-border -z-10"></div>
+                                    <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-surface-border -z-10"></div>
+                                    <div className="flex justify-center w-full">
+                                        {isGradingMode ? (
+                                            <div className="flex flex-col gap-6 w-full max-w-lg relative animate-fade-in-up">
+                                                {/* Timeline Track */}
+                                                <div className="absolute left-[27px] top-6 bottom-6 w-0.5 bg-surface-border -z-10"></div>
 
-                                                 {history.map((entry, hIdx) => {
-                                                     const isElected = entry.score === step.score && 
-                                                         (entry.source === 'human' ? entry.reasoning === step.humanNote : (entry.reasoning === step.content || entry.reasoning === step.humanNote));
-                                                     
-                                                     return (
-                                                        <GradingHistoryItem 
-                                                            key={hIdx} 
-                                                            entry={entry} 
-                                                            isElected={isElected} 
-                                                            onElect={() => handleElectEntry(step.id, entry)} 
+                                                {history.map((entry, hIdx) => {
+                                                    const isElected = entry.score === step.score &&
+                                                        (entry.source === 'human' ? entry.reasoning === step.humanNote : (entry.reasoning === step.content || entry.reasoning === step.humanNote));
+
+                                                    return (
+                                                        <GradingHistoryItem
+                                                            key={hIdx}
+                                                            entry={entry}
+                                                            isElected={isElected}
+                                                            onElect={() => handleElectEntry(step.id, entry)}
                                                         />
-                                                     );
-                                                 })}
+                                                    );
+                                                })}
 
-                                                <GradingForm 
+                                                <GradingForm
                                                     currentScore={step.score || 0}
                                                     onSubmit={(score, note) => updateStepGrade(step.id, 'human', score, note)}
                                                     onAIReGrade={() => handleAIReGrade(step.id, idx)}
                                                     isProcessing={isProcessing}
                                                 />
-                                             </div>
-                                         ) : (
-                                             // View Mode Pill
-                                             <div className="flex flex-col items-center gap-2 z-10 max-w-lg w-full">
-                                                 <div className={`
+                                            </div>
+                                        ) : (
+                                            // View Mode Pill
+                                            <div className="flex flex-col items-center gap-2 z-10 max-w-lg w-full">
+                                                <div className={`
                                                     flex items-center gap-3 px-4 py-1.5 rounded-full border shadow-lg relative transition-all duration-300
                                                     ${isProcessing ? 'scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]' : ''}
-                                                    ${(step.score || 0) >= 90 ? 'bg-[#062c1e] border-emerald-500/30 text-emerald-400' : 
-                                                      (step.score || 0) >= 70 ? 'bg-[#2e1d05] border-yellow-500/30 text-yellow-400' : 
-                                                      'bg-[#2c0b0e] border-red-500/30 text-red-400'}
+                                                    ${(step.score || 0) >= 90 ? 'bg-[#062c1e] border-emerald-500/30 text-emerald-400' :
+                                                        (step.score || 0) >= 70 ? 'bg-[#2e1d05] border-yellow-500/30 text-yellow-400' :
+                                                            'bg-[#2c0b0e] border-red-500/30 text-red-400'}
                                                  `}>
-                                                     <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                                                    <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1">
                                                         {step.isHumanGraded ? (
                                                             <span className="flex items-center gap-1 text-yellow-400"><span className="material-symbols-outlined text-[14px]">person_edit</span> Human</span>
                                                         ) : (
                                                             <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">auto_awesome</span> AI Graded</span>
                                                         )}
-                                                     </span>
-                                                     <div className="w-px h-3 bg-current opacity-20"></div>
-                                                     <span className="font-mono font-bold">{step.score}/100</span>
-                                                 </div>
-                                                 
-                                                 <div className="text-xs text-slate-500 max-w-xs text-center italic opacity-80 animate-fade-in-up">
-                                                     "{step.isHumanGraded ? step.humanNote : step.content}"
-                                                 </div>
+                                                    </span>
+                                                    <div className="w-px h-3 bg-current opacity-20"></div>
+                                                    <span className="font-mono font-bold">{step.score}/100</span>
+                                                </div>
 
-                                                 {step.gradingHistory && step.gradingHistory.length > 1 && (
-                                                     <div className="text-[10px] text-slate-600 bg-surface-dark px-2 py-0.5 rounded border border-surface-border mt-1">
-                                                         {step.gradingHistory.length} revisions available
-                                                     </div>
-                                                 )}
-                                             </div>
-                                         )}
-                                     </div>
+                                                <div className="text-xs text-slate-500 max-w-xs text-center italic opacity-80 animate-fade-in-up">
+                                                    "{step.isHumanGraded ? step.humanNote : step.content}"
+                                                </div>
+
+                                                {step.gradingHistory && step.gradingHistory.length > 1 && (
+                                                    <div className="text-[10px] text-slate-600 bg-surface-dark px-2 py-0.5 rounded border border-surface-border mt-1">
+                                                        {step.gradingHistory.length} revisions available
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             );
                         }
@@ -547,14 +547,14 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                         // Regular Message
                         return (
                             <div key={step.id} className={`relative pl-8 group animate-fade-in-up ${isPendingReRun ? 'opacity-30 blur-[1px]' : ''} transition-all duration-500`}>
-                                {!isScoreStep && idx !== localLogs.length - 1 && localLogs[idx+1].role !== 'system' && (
+                                {!isScoreStep && idx !== localLogs.length - 1 && localLogs[idx + 1].role !== 'system' && (
                                     <div className="absolute left-[11px] top-8 bottom-[-24px] w-px bg-surface-border group-last:hidden"></div>
                                 )}
-                                
+
                                 <div className={`absolute left-0 top-0 size-6 rounded-full border-2 flex items-center justify-center z-10 
-                                    ${step.role === 'agent' ? 'border-primary bg-[#111722]' : 
-                                      step.role === 'system' ? 'border-slate-600 bg-slate-600' : 
-                                      'border-emerald-500 bg-[#111722]'}`}>
+                                    ${step.role === 'agent' ? 'border-primary bg-[#111722]' :
+                                        step.role === 'system' ? 'border-slate-600 bg-slate-600' :
+                                            'border-emerald-500 bg-[#111722]'}`}>
                                     {step.role === 'agent' && <span className="material-symbols-outlined text-[14px] text-primary">smart_toy</span>}
                                     {step.role === 'interviewer' && <span className="material-symbols-outlined text-[14px] text-emerald-500">person</span>}
                                     {step.role === 'system' && <span className="material-symbols-outlined text-[14px] text-white">terminal</span>}
@@ -563,30 +563,30 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-baseline justify-between">
                                         <span className={`text-xs font-bold uppercase tracking-wider 
-                                            ${step.role === 'agent' ? 'text-primary' : 
-                                              step.role === 'system' ? 'text-slate-500' : 
-                                              'text-emerald-400'}`}>
+                                            ${step.role === 'agent' ? 'text-primary' :
+                                                step.role === 'system' ? 'text-slate-500' :
+                                                    'text-emerald-400'}`}>
                                             {step.role}
                                         </span>
                                         <span className="text-[10px] font-mono text-slate-600">{step.timestamp}</span>
                                     </div>
                                     <div className={`p-4 rounded-lg text-sm leading-relaxed border relative
-                                        ${step.role === 'agent' ? 'bg-primary/5 border-primary/20 text-slate-200' : 
-                                          step.role === 'system' ? 'bg-surface-dark border-surface-border text-slate-400 font-mono text-xs' : 
-                                          'bg-[#1a2332] border-surface-border text-white'}`}>
+                                        ${step.role === 'agent' ? 'bg-primary/5 border-primary/20 text-slate-200' :
+                                            step.role === 'system' ? 'bg-surface-dark border-surface-border text-slate-400 font-mono text-xs' :
+                                                'bg-[#1a2332] border-surface-border text-white'}`}>
                                         {step.content}
                                     </div>
                                 </div>
                             </div>
                         );
                     })}
-                    
+
                     {/* Pending Skeleton State */}
                     {pendingRole && <LoadingSkeleton role={pendingRole} />}
-                    
+
                     <div ref={scrollEndRef}></div>
                 </div>
-                
+
                 {/* Footer */}
                 <div className="p-4 md:p-6 border-t border-surface-border bg-surface-dark/50 relative overflow-hidden">
                     {showRerunConfirm ? (
@@ -614,7 +614,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                     </span>
                                 )}
                             </div>
-                            
+
                             <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar justify-start sm:justify-end">
                                 {isGradingMode ? (
                                     <>
@@ -639,7 +639,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                         </div>
                     )}
                 </div>
-             </div>
+            </div>
         </div>
     )
 }
