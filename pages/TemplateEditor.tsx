@@ -50,14 +50,6 @@ export const TemplateEditor: React.FC = () => {
         }
     }, [id, isEditMode, templates, navigate]);
 
-    // Auto-promote draft to private when reaching review step if it's a new template or currently a draft
-    useEffect(() => {
-        if (step === 3 && data.status === 'draft') {
-            // We set it to private as the default "Finish" state
-            setData(prev => ({ ...prev, status: 'private' }));
-        }
-    }, [step, data.status]);
-
     const updateData = (field: keyof Omit<Template, 'id' | 'lastUpdated'>, value: any) => {
         setData(prev => ({ ...prev, [field]: value }));
         // Clear specific error when user updates field
@@ -86,9 +78,17 @@ export const TemplateEditor: React.FC = () => {
         }
         if (stepIdx === 2) {
             // If manual, enforce at least one criteria
-            if (data.type === 'manual' && (!data.criteria || data.criteria.length === 0)) {
-                newErrors.criteria = "Please add at least one evaluation criterion.";
-                isValid = false;
+            if (data.type === 'manual') {
+                if (!data.criteria || data.criteria.length === 0) {
+                    newErrors.criteria = "Please add at least one evaluation criterion.";
+                    isValid = false;
+                } else {
+                    const incomplete = data.criteria.some(c => !c.prompt?.trim() || !c.expected?.trim());
+                    if (incomplete) {
+                        newErrors.criteria = "All test cases must have a prompt and expected response criteria.";
+                        isValid = false;
+                    }
+                }
             }
         }
 
@@ -112,11 +112,21 @@ export const TemplateEditor: React.FC = () => {
                  return;
              }
         }
+
+        // Auto-promote logic when jumping to review if currently draft
+        if (targetStep === 3 && data.status === 'draft') {
+             setData(prev => ({ ...prev, status: 'private' }));
+        }
+
         setStep(targetStep);
     }
 
     const handleNext = () => {
         if (validateStep(step)) {
+            // Auto-promote to private if entering review step from draft
+            if (step === 2 && data.status === 'draft') {
+                setData(prev => ({ ...prev, status: 'private' }));
+            }
             setStep(s => s + 1);
         }
     }
@@ -358,14 +368,19 @@ export const TemplateEditor: React.FC = () => {
                                 <CriteriaBuilder 
                                     criteria={data.criteria || []} 
                                     onChange={c => {
-                                        updateData('criteria', c);
-                                        // Clear validation error if we have items now
-                                        if (c.length > 0 && errors.criteria) {
-                                             setErrors(prev => {
-                                                const newErrors = { ...prev };
-                                                delete newErrors.criteria;
-                                                return newErrors;
-                                            });
+                                        // Update state directly to bypass automatic error clearing for complex validation
+                                        setData(prev => ({ ...prev, criteria: c }));
+                                        
+                                        // Manually handle error clearing: ONLY clear if all items are valid and at least one exists
+                                        if (errors.criteria) {
+                                            const incomplete = c.some(item => !item.prompt?.trim() || !item.expected?.trim());
+                                            if (!incomplete && c.length > 0) {
+                                                setErrors(prev => {
+                                                    const newErrors = { ...prev };
+                                                    delete newErrors.criteria;
+                                                    return newErrors;
+                                                });
+                                            }
                                         }
                                     }} 
                                     error={errors.criteria}
@@ -415,6 +430,7 @@ export const TemplateEditor: React.FC = () => {
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Publication Status</label>
                                 <div className="flex bg-background-dark p-1 rounded-lg border border-surface-border w-full max-w-md">
                                     <button 
+                                        type="button"
                                         onClick={() => updateData('status', 'private')}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded transition-all ${data.status === 'private' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-sm' : 'text-slate-400 hover:text-white'}`}
                                     >
@@ -422,6 +438,7 @@ export const TemplateEditor: React.FC = () => {
                                         Private
                                     </button>
                                     <button 
+                                        type="button"
                                         onClick={() => updateData('status', 'public')}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded transition-all ${data.status === 'public' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-slate-400 hover:text-white'}`}
                                     >
@@ -429,6 +446,7 @@ export const TemplateEditor: React.FC = () => {
                                         Public
                                     </button>
                                     <button 
+                                        type="button"
                                         onClick={() => updateData('status', 'draft')}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded transition-all ${data.status === 'draft' ? 'bg-slate-700/50 text-slate-300 border border-slate-600 shadow-sm' : 'text-slate-400 hover:text-white'}`}
                                     >

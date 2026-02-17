@@ -6,7 +6,7 @@ import { TemplateCard } from '../components/templates/TemplateCard';
 
 export const TemplatesList: React.FC = () => {
     const navigate = useNavigate();
-    const { templates, deleteTemplate, duplicateTemplate } = useTemplates();
+    const { templates, deleteTemplate, duplicateTemplate, updateTemplate } = useTemplates();
     const [filterText, setFilterText] = useState('');
     const [difficulty, setDifficulty] = useState<string>('All');
 
@@ -89,6 +89,7 @@ export const TemplatesList: React.FC = () => {
                                         template={t} 
                                         onDelete={deleteTemplate} 
                                         onDuplicate={handleDuplicate}
+                                        onStatusChange={(id, status) => updateTemplate(id, { status })}
                                     />
                                 ))
                             ) : (

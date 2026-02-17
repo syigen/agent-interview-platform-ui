@@ -2,7 +2,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Template } from '../../types';
 
-export const TemplateCard: React.FC<{ template: Template; onDelete: (id: string) => void; onDuplicate: (id: string) => void }> = ({ template, onDelete, onDuplicate }) => {
+export const TemplateCard: React.FC<{ 
+    template: Template; 
+    onDelete: (id: string) => void; 
+    onDuplicate: (id: string) => void;
+    onStatusChange: (id: string, status: 'draft' | 'private' | 'public') => void;
+}> = ({ template, onDelete, onDuplicate, onStatusChange }) => {
     const navigate = useNavigate();
     
     const statusColors = {
@@ -17,9 +22,17 @@ export const TemplateCard: React.FC<{ template: Template; onDelete: (id: string)
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-white group-hover:text-primary transition-colors cursor-pointer" onClick={() => navigate(`/templates/edit/${template.id}`)}>{template.name}</span>
-                        <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${statusColors[template.status]}`}>
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const next = template.status === 'draft' ? 'private' : template.status === 'private' ? 'public' : 'draft';
+                                onStatusChange(template.id, next);
+                            }}
+                            className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${statusColors[template.status]} hover:ring-1 hover:ring-white/20 transition-all cursor-pointer`}
+                            title="Click to toggle status"
+                        >
                             {template.status}
-                        </span>
+                        </button>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                         <span>ID: {template.id}</span>
