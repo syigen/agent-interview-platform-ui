@@ -4,13 +4,32 @@ import { Template } from '../../types';
 
 export const TemplateCard: React.FC<{ template: Template; onDelete: (id: string) => void; onDuplicate: (id: string) => void }> = ({ template, onDelete, onDuplicate }) => {
     const navigate = useNavigate();
+    
+    const statusColors = {
+        draft: 'bg-slate-700/50 text-slate-400 border-slate-600',
+        private: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+        public: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+    };
+
     return (
         <tr className="hover:bg-surface-border/30 transition-colors group">
             <td className="px-6 py-4">
-                <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-white group-hover:text-primary transition-colors cursor-pointer" onClick={() => navigate(`/templates/edit/${template.id}`)}>{template.name}</span>
-                    <span className="text-xs text-slate-500">ID: {template.id}</span>
-                    {template.description && <span className="text-[10px] text-slate-500 mt-1 line-clamp-1">{template.description}</span>}
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-white group-hover:text-primary transition-colors cursor-pointer" onClick={() => navigate(`/templates/edit/${template.id}`)}>{template.name}</span>
+                        <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${statusColors[template.status]}`}>
+                            {template.status}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>ID: {template.id}</span>
+                        {template.description && (
+                             <>
+                                <span>•</span>
+                                <span className="line-clamp-1 max-w-[200px]">{template.description}</span>
+                             </>
+                        )}
+                    </div>
                 </div>
             </td>
             <td className="px-6 py-4">

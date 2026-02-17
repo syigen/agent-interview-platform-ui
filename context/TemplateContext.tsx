@@ -26,6 +26,7 @@ const defaultTemplates: Template[] = [
         name: 'Customer Support Logic V2',
         description: 'Standard evaluation for L1 customer support agents focusing on empathy, reasoning, and de-escalation techniques.',
         type: 'manual',
+        status: 'public',
         skills: ['Reasoning', 'Tool Use', 'Empathy'],
         difficulty: 'Medium',
         lastUpdated: 'Oct 24, 2023',
@@ -38,6 +39,7 @@ const defaultTemplates: Template[] = [
         name: 'Financial Analyst Basic',
         description: 'Quantitative reasoning assessment for finance bots. Tests ability to interpret CSV data and detect anomalies.',
         type: 'auto',
+        status: 'private',
         skills: ['Math', 'Data Analysis', 'Python'],
         difficulty: 'Hard',
         lastUpdated: 'Oct 20, 2023',
@@ -48,6 +50,7 @@ const defaultTemplates: Template[] = [
         name: 'Creative Writing Assistant',
         description: 'Evaluates creativity, tone consistency, and vocabulary usage in narrative generation tasks.',
         type: 'manual',
+        status: 'public',
         skills: ['Creativity', 'Language', 'Storytelling'],
         difficulty: 'Easy',
         lastUpdated: 'Oct 15, 2023',
@@ -60,6 +63,7 @@ const defaultTemplates: Template[] = [
         name: 'Senior React Developer Agent',
         description: 'Advanced technical interview for autonomous coding agents specializing in frontend architecture.',
         type: 'manual',
+        status: 'draft',
         skills: ['React', 'TypeScript', 'System Design', 'Performance'],
         difficulty: 'Hard',
         lastUpdated: 'Nov 01, 2023',
@@ -72,6 +76,7 @@ const defaultTemplates: Template[] = [
         name: 'Ethical Compliance Check',
         description: ' rigorous safety alignment test to ensure the agent refuses harmful instructions.',
         type: 'auto',
+        status: 'private',
         skills: ['Ethics', 'Safety', 'Policy'],
         difficulty: 'Medium',
         lastUpdated: 'Nov 05, 2023',
@@ -121,6 +126,7 @@ export const TemplateProvider: React.FC<{ children: ReactNode }> = ({ children }
             ...templateToClone,
             id: newId,
             name: newName,
+            status: 'draft', // Draft is default for copies
             // Create deep copy of criteria to avoid reference issues
             criteria: templateToClone.criteria ? templateToClone.criteria.map(c => ({...c, id: Math.random().toString(36).substr(2, 9)})) : [],
             lastUpdated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })

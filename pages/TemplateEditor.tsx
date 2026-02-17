@@ -23,6 +23,7 @@ export const TemplateEditor: React.FC = () => {
         name: '',
         description: '',
         type: 'manual',
+        status: 'draft', // Default is draft
         difficulty: 'Medium',
         skills: ['Reasoning'],
         criteria: []
@@ -37,6 +38,7 @@ export const TemplateEditor: React.FC = () => {
                     name: templateToEdit.name,
                     description: templateToEdit.description || '',
                     type: templateToEdit.type,
+                    status: templateToEdit.status,
                     difficulty: templateToEdit.difficulty,
                     skills: templateToEdit.skills,
                     criteria: templateToEdit.criteria || []
@@ -47,6 +49,14 @@ export const TemplateEditor: React.FC = () => {
             }
         }
     }, [id, isEditMode, templates, navigate]);
+
+    // Auto-promote draft to private when reaching review step if it's a new template or currently a draft
+    useEffect(() => {
+        if (step === 3 && data.status === 'draft') {
+            // We set it to private as the default "Finish" state
+            setData(prev => ({ ...prev, status: 'private' }));
+        }
+    }, [step, data.status]);
 
     const updateData = (field: keyof Omit<Template, 'id' | 'lastUpdated'>, value: any) => {
         setData(prev => ({ ...prev, [field]: value }));
@@ -399,6 +409,38 @@ export const TemplateEditor: React.FC = () => {
                                         {data.skills.map(s => <span key={s} className="px-2 py-0.5 bg-surface-dark border border-surface-border rounded text-xs text-slate-300">{s}</span>)}
                                     </div>
                                 </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Publication Status</label>
+                                <div className="flex bg-background-dark p-1 rounded-lg border border-surface-border w-full max-w-md">
+                                    <button 
+                                        onClick={() => updateData('status', 'private')}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded transition-all ${data.status === 'private' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">lock</span>
+                                        Private
+                                    </button>
+                                    <button 
+                                        onClick={() => updateData('status', 'public')}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded transition-all ${data.status === 'public' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">public</span>
+                                        Public
+                                    </button>
+                                    <button 
+                                        onClick={() => updateData('status', 'draft')}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded transition-all ${data.status === 'draft' ? 'bg-slate-700/50 text-slate-300 border border-slate-600 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">edit_document</span>
+                                        Draft
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    {data.status === 'private' && "Only visible to you and organization admins."}
+                                    {data.status === 'public' && "Visible to all verifiable AI platform users."}
+                                    {data.status === 'draft' && "Work in progress. Not available for execution runs."}
+                                </p>
                             </div>
                             
                             <div className="h-px bg-surface-border w-full"></div>

@@ -41,6 +41,7 @@ export interface Template {
   name: string;
   description?: string;
   type: 'auto' | 'manual';
+  status: 'draft' | 'private' | 'public';
   skills: string[];
   difficulty: 'Easy' | 'Medium' | 'Hard';
   criteria?: Criterion[];

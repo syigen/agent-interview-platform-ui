@@ -4,6 +4,7 @@ import { Card, Button, Input, Badge } from '../components/ui/Common';
 import { Run } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
+import { useTemplates } from '../context/TemplateContext';
 
 const dummyRuns: Run[] = [
   { id: 'RUN-3920', agentId: 'AGT-774', agentName: 'Support-Genius-v2', timestamp: 'Just now', status: 'running' },
@@ -20,6 +21,7 @@ const dummyRuns: Run[] = [
 
 export const AgentRuns: React.FC = () => {
     const navigate = useNavigate();
+    const { templates } = useTemplates();
     const [showGenerator, setShowGenerator] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRun, setSelectedRun] = useState<Run | null>(null);
@@ -29,6 +31,9 @@ export const AgentRuns: React.FC = () => {
         run.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         run.agentId.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Filter out drafts for the generator dropdown
+    const availableTemplates = templates.filter(t => t.status !== 'draft');
 
     return (
         <Layout>
@@ -54,9 +59,13 @@ export const AgentRuns: React.FC = () => {
                                 <div>
                                     <label className="text-sm font-semibold text-slate-300 mb-2 block">Evaluation Template</label>
                                     <select className="w-full bg-background-dark border border-surface-border text-white text-sm rounded-lg p-3.5 focus:ring-2 focus:ring-primary focus:outline-none">
-                                        <option>Standard Compliance Check (v1.2)</option>
-                                        <option>Advanced Reasoning Benchmarks</option>
-                                        <option>Customer Support Empathy Test</option>
+                                        {availableTemplates.length > 0 ? (
+                                            availableTemplates.map(t => (
+                                                <option key={t.id} value={t.id}>{t.name} ({t.difficulty})</option>
+                                            ))
+                                        ) : (
+                                            <option disabled>No published templates available</option>
+                                        )}
                                     </select>
                                 </div>
                                 <div className="grid grid-cols-2 gap-6">
