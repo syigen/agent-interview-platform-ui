@@ -164,23 +164,23 @@ export const AgentRuns: React.FC = () => {
                 onStart={handleStartSimulation}
             />
 
-            <div className="p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
+            <div className="p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
                  <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
                      <div>
                         <h1 className="text-3xl font-black text-white">Agent Runs & Results</h1>
                         <p className="text-slate-400">Comprehensive audit log of all agent evaluation attempts.</p>
                      </div>
-                     <div className="flex gap-3">
+                     <div className="flex flex-col sm:flex-row gap-3">
                          <Button variant="secondary" icon="smart_toy" onClick={() => setShowSimulationModal(true)}>
                             Run Simulation
                          </Button>
                          <Button icon="bolt" onClick={() => setShowGenerator(!showGenerator)}>
-                            {showGenerator ? 'Close Generator' : 'Generate Access Prompt'}
+                            {showGenerator ? 'Close' : 'Generate Prompt'}
                          </Button>
                      </div>
                 </div>
 
-                {/* Generator Section - Preserved from previous */}
+                {/* Generator Section */}
                 {showGenerator && (
                     <div className="bg-surface-dark border border-surface-border rounded-2xl p-8 shadow-xl animate-fade-in-up flex flex-col lg:flex-row gap-8">
                         <div className="flex-1 flex flex-col gap-6">
@@ -231,7 +231,7 @@ export const AgentRuns: React.FC = () => {
                 )}
                 
                 <Card className="flex flex-col gap-0 overflow-hidden">
-                    <div className="p-5 border-b border-surface-border flex flex-col sm:flex-row justify-between items-center gap-4 bg-surface-dark">
+                    <div className="p-5 border-b border-surface-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-dark">
                          <div className="flex items-center gap-2">
                              <span className="material-symbols-outlined text-slate-500">history</span>
                              <h3 className="font-bold text-white">Execution Log</h3>
@@ -248,7 +248,8 @@ export const AgentRuns: React.FC = () => {
                          </div>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead>
                                 <tr className="bg-surface-border/30 border-b border-surface-border">
@@ -338,6 +339,60 @@ export const AgentRuns: React.FC = () => {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden flex flex-col p-4 gap-3 bg-[#111722]">
+                        {filteredRuns.length > 0 ? (
+                            filteredRuns.map((run) => (
+                                <div 
+                                    key={run.id} 
+                                    onClick={() => setViewingRunId(run.id)}
+                                    className="bg-surface-dark border border-surface-border rounded-lg p-4 active:bg-[#1a2332] active:scale-[0.98] transition-all"
+                                >
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-white text-sm">{run.agentName}</span>
+                                            <span className="text-[10px] text-slate-500 font-mono mt-1">{run.id} • {run.agentId}</span>
+                                        </div>
+                                        {run.status === 'pass' && <Badge type="pass" icon="check_circle">Certified</Badge>}
+                                        {run.status === 'fail' && <Badge type="fail" icon="cancel">Failed</Badge>}
+                                        {run.status === 'running' && <Badge type="progress" icon="sync">Run</Badge>}
+                                        {run.status === 'in_progress' && <Badge type="neutral" icon="pending">Pending</Badge>}
+                                    </div>
+
+                                    <div className="flex items-center justify-between border-t border-surface-border/50 pt-3 mt-1">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] uppercase text-slate-500 font-bold">Score</span>
+                                            <span className={`font-bold text-sm ${run.score !== undefined && run.score > 80 ? 'text-white' : 'text-red-400'}`}>
+                                                {run.score !== undefined ? `${run.score}/100` : '--'}
+                                            </span>
+                                        </div>
+                                        <div className="text-xs text-slate-500 font-mono self-end mb-1">{run.timestamp}</div>
+                                        <div className="flex gap-2">
+                                            {run.status === 'pass' && (
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/certificate/${run.id}`);
+                                                    }}
+                                                    className="size-8 flex items-center justify-center rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                                                >
+                                                    <span className="material-symbols-outlined text-[18px]">verified</span>
+                                                </button>
+                                            )}
+                                            <button className="size-8 flex items-center justify-center rounded bg-white/5 text-slate-400">
+                                                <span className="material-symbols-outlined text-[18px]">description</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                             <div className="text-center py-12 text-slate-500">
+                                No runs found matching "{searchTerm}"
+                            </div>
+                        )}
                     </div>
                 </Card>
             </div>

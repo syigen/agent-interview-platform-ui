@@ -114,7 +114,7 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
             </div>
             
             <div className="pl-9 space-y-3">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                     <span className="text-xs font-bold text-slate-500">Score:</span>
                     <input 
                         type="number" 
@@ -126,7 +126,7 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
                     />
                     <input 
                         type="range" 
-                        className="flex-1 accent-primary h-2 bg-surface-border rounded-lg appearance-none cursor-pointer"
+                        className="flex-1 accent-primary h-2 bg-surface-border rounded-lg appearance-none cursor-pointer min-w-[120px]"
                         min="0" max="100"
                         value={score}
                         onChange={(e) => setScore(Number(e.target.value))}
@@ -139,10 +139,10 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                 ></textarea>
-                <div className="flex justify-between items-center pt-2">
+                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-2 gap-2">
                      <Button 
                         variant="secondary"
-                        className="text-xs h-8 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/50"
+                        className="text-xs h-8 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/50 justify-center"
                         icon="smart_toy"
                         onClick={onAIReGrade}
                         disabled={isProcessing}
@@ -152,7 +152,7 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
 
                     <Button 
                         icon="add_comment" 
-                        className="text-xs h-8"
+                        className="text-xs h-8 justify-center"
                         onClick={() => {
                             if (note.trim()) {
                                 onSubmit(score, note);
@@ -381,11 +381,11 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
     return (
         <div className="fixed inset-0 z-[100] flex justify-end">
              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isRunningFullRegrade && run.status !== 'running' && onClose()}></div>
-             <div className="relative w-full max-w-3xl bg-[#111722] border-l border-surface-border shadow-2xl h-full flex flex-col animate-fade-in-up">
+             <div className="relative w-full md:max-w-3xl bg-[#111722] md:border-l border-surface-border shadow-2xl h-full flex flex-col animate-fade-in-up">
                 
                 {/* Error Overlay */}
                 {rerunError && (
-                    <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-8 animate-fade-in-up">
+                    <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-fade-in-up">
                         <div className="bg-[#1a2332] border border-red-500/30 rounded-xl p-6 max-w-md w-full shadow-2xl">
                             <div className="flex items-center gap-3 mb-4 text-red-500">
                                 <span className="material-symbols-outlined text-3xl">error</span>
@@ -403,31 +403,41 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
 
                 {/* Header */}
                 <div className="flex flex-col border-b border-surface-border bg-surface-dark/50 z-20">
-                    <div className="flex items-center justify-between p-6 pb-4">
-                        <div>
-                            <h2 className="text-xl font-bold text-white flex items-center gap-3">
-                                {run.agentName}
-                                {(run.status === 'running' || isRunningFullRegrade) && (
-                                    <span className="flex h-2 w-2 relative">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                    </span>
-                                )}
-                            </h2>
-                            <div className="flex items-center gap-2 text-sm text-slate-400 mt-1">
-                                <span className="font-mono bg-surface-border/50 px-1.5 rounded text-xs">{run.id}</span>
-                                <span>•</span>
-                                <span>{run.timestamp}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-6 gap-4 sm:gap-0">
+                        <div className="flex justify-between items-start sm:block">
+                            <div>
+                                <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-3">
+                                    {run.agentName}
+                                    {(run.status === 'running' || isRunningFullRegrade) && (
+                                        <span className="flex h-2 w-2 relative">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                        </span>
+                                    )}
+                                </h2>
+                                <div className="flex items-center gap-2 text-sm text-slate-400 mt-1">
+                                    <span className="font-mono bg-surface-border/50 px-1.5 rounded text-xs">{run.id}</span>
+                                    <span>•</span>
+                                    <span>{run.timestamp}</span>
+                                </div>
                             </div>
+                             
+                             {/* Mobile Close Button (Top Right) */}
+                            <button onClick={onClose} disabled={isRunningFullRegrade || run.status === 'running'} className="sm:hidden p-2 -mr-2 -mt-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors disabled:opacity-50">
+                                <span className="material-symbols-outlined text-2xl">close</span>
+                            </button>
                         </div>
-                        <div className="flex items-center gap-4">
-                             <div className="flex flex-col items-end">
-                                <span className="text-xs font-bold uppercase text-slate-500">Current Score</span>
-                                <span className={`text-3xl font-black transition-all ${avgScore > 80 ? 'text-emerald-400' : avgScore > 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        
+                        <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0">
+                             <div className="flex flex-col items-start sm:items-end">
+                                <span className="text-[10px] font-bold uppercase text-slate-500">Current Score</span>
+                                <span className={`text-2xl md:text-3xl font-black transition-all ${avgScore > 80 ? 'text-emerald-400' : avgScore > 50 ? 'text-yellow-400' : 'text-red-400'}`}>
                                     {avgScore}
                                 </span>
                              </div>
-                             <button onClick={onClose} disabled={isRunningFullRegrade || run.status === 'running'} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors disabled:opacity-50">
+                             
+                             {/* Desktop Close Button */}
+                             <button onClick={onClose} disabled={isRunningFullRegrade || run.status === 'running'} className="hidden sm:block p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors disabled:opacity-50">
                                 <span className="material-symbols-outlined text-2xl">close</span>
                             </button>
                         </div>
@@ -445,7 +455,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth bg-gradient-to-b from-[#111722] to-[#0d121c]">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth bg-gradient-to-b from-[#111722] to-[#0d121c]">
                     {localLogs.map((step, idx) => {
                         const isScoreStep = step.role === 'system' && step.score !== undefined;
                         const isProcessing = regradingStepId === step.id;
@@ -578,21 +588,21 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                 </div>
                 
                 {/* Footer */}
-                <div className="p-6 border-t border-surface-border bg-surface-dark/50 relative overflow-hidden">
+                <div className="p-4 md:p-6 border-t border-surface-border bg-surface-dark/50 relative overflow-hidden">
                     {showRerunConfirm ? (
-                        <div className="flex items-center justify-between animate-fade-in-up">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in-up">
                             <div className="flex items-center gap-2 text-yellow-400">
                                 <span className="material-symbols-outlined">warning</span>
                                 <span className="text-sm font-bold">Confirm Re-run Analysis?</span>
                             </div>
-                            <div className="flex gap-2">
-                                <Button variant="ghost" onClick={() => setShowRerunConfirm(false)}>Cancel</Button>
-                                <Button onClick={handleFullReRun} icon="check_circle">Yes, Execute</Button>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <Button variant="ghost" onClick={() => setShowRerunConfirm(false)} className="flex-1 sm:flex-none">Cancel</Button>
+                                <Button onClick={handleFullReRun} icon="check_circle" className="flex-1 sm:flex-none">Yes, Execute</Button>
                             </div>
                         </div>
                     ) : (
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
                                 {isGradingMode ? (
                                     <span className="text-xs text-yellow-500 font-bold flex items-center gap-2 animate-pulse">
                                         <span className="material-symbols-outlined text-[16px]">edit_note</span>
@@ -604,24 +614,25 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                     </span>
                                 )}
                             </div>
-                            <div className="flex gap-3">
+                            
+                            <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar justify-start sm:justify-end">
                                 {isGradingMode ? (
                                     <>
-                                        <Button variant="ghost" onClick={() => setIsGradingMode(false)}>Cancel</Button>
-                                        <Button onClick={handleSaveGrades} icon="save" className="bg-yellow-500 hover:bg-yellow-400 text-black border-transparent">Save Grades</Button>
+                                        <Button variant="ghost" onClick={() => setIsGradingMode(false)} className="whitespace-nowrap">Cancel</Button>
+                                        <Button onClick={handleSaveGrades} icon="save" className="bg-yellow-500 hover:bg-yellow-400 text-black border-transparent whitespace-nowrap">Save Grades</Button>
                                     </>
                                 ) : (
                                     <>
-                                        <Button variant="secondary" icon="fact_check" onClick={() => setIsGradingMode(true)} disabled={isRunningFullRegrade || run.status === 'running'}>
+                                        <Button variant="secondary" icon="fact_check" onClick={() => setIsGradingMode(true)} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">
                                             Human Review
                                         </Button>
                                         {run.status === 'pass' && (
-                                            <Button variant="secondary" icon="verified" onClick={() => navigate(`/certificate/${run.id}`)} disabled={isRunningFullRegrade}>
-                                                View Certificate
+                                            <Button variant="secondary" icon="verified" onClick={() => navigate(`/certificate/${run.id}`)} disabled={isRunningFullRegrade} className="whitespace-nowrap">
+                                                Certificate
                                             </Button>
                                         )}
-                                        <Button variant="secondary" icon="download" disabled={isRunningFullRegrade || run.status === 'running'}>Export</Button>
-                                        <Button icon="replay" onClick={() => setShowRerunConfirm(true)} disabled={isRunningFullRegrade || run.status === 'running'}>Re-run</Button>
+                                        <Button variant="secondary" icon="download" disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">Export</Button>
+                                        <Button icon="replay" onClick={() => setShowRerunConfirm(true)} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">Re-run</Button>
                                     </>
                                 )}
                             </div>

@@ -13,7 +13,8 @@ export const RecentActivityTable: React.FC<RecentActivityTableProps> = ({ runs, 
 
     return (
         <div className="w-full overflow-hidden rounded-xl border border-surface-border bg-surface-dark shadow-sm animate-fade-in-up">
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead>
                         <tr className="border-b border-surface-border bg-[#151c2a]">
@@ -93,6 +94,64 @@ export const RecentActivityTable: React.FC<RecentActivityTableProps> = ({ runs, 
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden flex flex-col p-4 gap-3 bg-[#111722]">
+                {runs.length > 0 ? (
+                    runs.map((run) => (
+                        <div 
+                            key={run.id} 
+                            onClick={() => onSelectRun(run)}
+                            className="bg-surface-dark border border-surface-border rounded-lg p-4 active:bg-[#1a2332] active:scale-[0.98] transition-all"
+                        >
+                            <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="size-8 rounded bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs">
+                                        {run.agentId.substring(0, 2)}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-white text-sm">{run.agentName}</span>
+                                        <span className="text-[10px] text-slate-500 font-mono">{run.timestamp}</span>
+                                    </div>
+                                </div>
+                                {run.status === 'pass' && <Badge type="pass" icon="check_circle">Certified</Badge>}
+                                {run.status === 'fail' && <Badge type="fail" icon="cancel">Failed</Badge>}
+                                {run.status === 'running' && <Badge type="progress" icon="sync">Running</Badge>}
+                                {run.status === 'in_progress' && <Badge type="neutral" icon="pending">Pending</Badge>}
+                            </div>
+
+                            <div className="flex items-center justify-between border-t border-surface-border/50 pt-3 mt-1">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] uppercase text-slate-500 font-bold">Score</span>
+                                    <span className={`font-bold text-sm ${run.score !== undefined && run.score > 80 ? 'text-white' : 'text-red-400'}`}>
+                                        {run.score !== undefined ? `${run.score}/100` : '--'}
+                                    </span>
+                                </div>
+                                <div className="flex gap-3">
+                                    {run.status === 'pass' && (
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/certificate/${run.id}`);
+                                            }}
+                                            className="text-emerald-500 text-xs font-bold uppercase tracking-wider flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20"
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">verified</span> Cert
+                                        </button>
+                                    )}
+                                    <button className="text-slate-400 hover:text-white">
+                                        <span className="material-symbols-outlined text-[20px]">{run.status === 'running' ? 'visibility' : 'description'}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="text-center py-8 text-slate-500">
+                        No recent activity found.
+                    </div>
+                )}
             </div>
         </div>
     );

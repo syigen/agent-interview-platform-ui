@@ -7,7 +7,7 @@ import { addRun, updateRunStatus } from '../store/slices/runSlice';
 import { TemplateCard } from '../components/templates/TemplateCard';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
 import { geminiService } from '../services/GeminiService';
-import { ChatStep, Run } from '../types';
+import { ChatStep, Run, Template } from '../types';
 
 export const TemplatesList: React.FC = () => {
     const navigate = useNavigate();
@@ -173,8 +173,44 @@ export const TemplatesList: React.FC = () => {
         }
     };
 
+    const renderMobileTemplate = (t: Template) => (
+        <div key={t.id} className="bg-surface-dark border border-surface-border rounded-xl p-4 mb-4 flex flex-col gap-4">
+            <div className="flex justify-between items-start">
+                 <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <Link to={`/templates/edit/${t.id}`} className="font-bold text-white text-lg">{t.name}</Link>
+                         <div className={`size-2.5 rounded-full ${t.difficulty === 'Hard' ? 'bg-red-500' : t.difficulty === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+                    </div>
+                    <p className="text-xs text-slate-400 line-clamp-2">{t.description}</p>
+                 </div>
+                 <button 
+                     onClick={() => dispatch(updateTemplate({ id: t.id, changes: { status: t.status === 'draft' ? 'private' : t.status === 'private' ? 'public' : 'draft' } }))}
+                     className={`text-[10px] font-bold uppercase border px-2 py-1 rounded ${t.status === 'public' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-400 border-surface-border'}`}
+                 >
+                    {t.status}
+                 </button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+                {t.skills.map(s => (
+                    <span key={s} className="px-2 py-1 rounded text-xs bg-surface-border/50 text-slate-300 border border-slate-700">{s}</span>
+                ))}
+            </div>
+            
+            <div className="flex items-center justify-between border-t border-surface-border pt-3">
+                <div className="text-xs text-slate-500">{t.lastUpdated}</div>
+                <div className="flex gap-3">
+                     <button onClick={() => handleSimulateStream(t.id)} className="text-primary hover:text-white"><span className="material-symbols-outlined">play_arrow</span></button>
+                     <button onClick={() => handleDuplicate(t.id)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">content_copy</span></button>
+                     <button onClick={() => navigate(`/templates/edit/${t.id}`)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">edit</span></button>
+                     <button onClick={() => dispatch(deleteTemplate(t.id))} className="text-red-400 hover:text-red-300"><span className="material-symbols-outlined">delete</span></button>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
-        <div className="flex flex-col gap-6 max-w-7xl mx-auto p-6 md:p-12">
+        <div className="flex flex-col gap-6 max-w-7xl mx-auto p-4 md:p-12">
             <RunDetailsPanel 
                 run={viewingRun} 
                 onClose={() => setViewingRunId(null)} 
@@ -185,8 +221,8 @@ export const TemplatesList: React.FC = () => {
                     <h1 className="text-3xl md:text-4xl font-black leading-tight tracking-tight text-white">Interview Templates</h1>
                     <p className="text-slate-400 text-base font-normal max-w-2xl">Manage and create standardized evaluation frameworks for your AI agents.</p>
                 </div>
-                <Link to="/templates/create">
-                    <Button icon="add">Create Template</Button>
+                <Link to="/templates/create" className="w-full md:w-auto">
+                    <Button icon="add" className="w-full md:w-auto">Create Template</Button>
                 </Link>
             </div>
 
@@ -222,8 +258,9 @@ export const TemplatesList: React.FC = () => {
                 </div>
             </Card>
 
-            <Card className="overflow-hidden">
-                <div className="overflow-x-auto">
+            <Card className="overflow-hidden bg-[#111722] md:bg-surface-dark">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left text-sm">
                         <thead>
                             <tr className="bg-surface-border/50 border-b border-surface-border">
@@ -258,6 +295,18 @@ export const TemplatesList: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden p-4">
+                    {filteredTemplates.length > 0 ? (
+                        filteredTemplates.map(renderMobileTemplate)
+                    ) : (
+                         <div className="text-center py-12 text-slate-500">
+                            <span className="material-symbols-outlined text-3xl opacity-50 mb-2">search_off</span>
+                            <p>No templates found matching your search.</p>
+                        </div>
+                    )}
                 </div>
             </Card>
         </div>
