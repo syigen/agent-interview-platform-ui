@@ -10,6 +10,7 @@ import { addRun, updateRunLocal, fetchRuns, createRun } from '../store/slices/ru
 import { fetchTemplates } from '../store/slices/templateSlice';
 import { llmService } from '../services/LLMService';
 import { runService } from '../services/RunService';
+import { AgentInterviewService } from '../services/AgentInterviewService';
 
 export const AgentRuns: React.FC = () => {
     const navigate = useNavigate();
@@ -28,6 +29,54 @@ export const AgentRuns: React.FC = () => {
     const [showSimulationModal, setShowSimulationModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [viewingRunId, setViewingRunId] = useState<string | null>(null);
+
+    // Invite Gen State
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [genLoading, setGenLoading] = useState(false);
+    const [generatedPrompt, setGeneratedPrompt] = useState<{ token: string; prompt: string } | null>(null);
+    const [copyToast, setCopyToast] = useState(false);
+    const [copyTokenToast, setCopyTokenToast] = useState(false);
+
+    useEffect(() => {
+        if (templates.length > 0 && !selectedTemplateId) {
+            setSelectedTemplateId(templates[0].id);
+        }
+    }, [templates, selectedTemplateId]);
+
+    const handleGenerateInvite = async () => {
+        if (!selectedTemplateId) return;
+        setGenLoading(true);
+        try {
+            const result = await AgentInterviewService.generateInvitePrompt(selectedTemplateId);
+            setGeneratedPrompt(result);
+        } catch (e) {
+            console.error("Failed to generate invite", e);
+        } finally {
+            setGenLoading(false);
+        }
+    };
+
+    const handleCopyPrompt = async () => {
+        if (!generatedPrompt) return;
+        try {
+            await navigator.clipboard.writeText(generatedPrompt.prompt.trim());
+            setCopyToast(true);
+            setTimeout(() => setCopyToast(false), 2000);
+        } catch (e) {
+            console.error("Failed to copy", e);
+        }
+    };
+
+    const handleCopyToken = async () => {
+        if (!generatedPrompt) return;
+        try {
+            await navigator.clipboard.writeText(generatedPrompt.token);
+            setCopyTokenToast(true);
+            setTimeout(() => setCopyTokenToast(false), 2000);
+        } catch (e) {
+            console.error("Failed to copy token", e);
+        }
+    };
 
     const filteredRuns = runs.filter(run =>
         run.agentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -216,7 +265,7 @@ export const AgentRuns: React.FC = () => {
             <div className="p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
                 <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
                     <div>
-                        <h1 className="text-3xl font-black text-white">Agent Runs & Results</h1>
+                        <h1 className="text-3xl font-black text-white">Agent Interviews</h1>
                         <p className="text-slate-400">Comprehensive audit log of all agent evaluation attempts.</p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3">
@@ -237,7 +286,11 @@ export const AgentRuns: React.FC = () => {
                             <div className="flex flex-col gap-4">
                                 <div>
                                     <label className="text-sm font-semibold text-slate-300 mb-2 block">Evaluation Template</label>
-                                    <select className="w-full bg-background-dark border border-surface-border text-white text-sm rounded-lg p-3.5 focus:ring-2 focus:ring-primary focus:outline-none">
+                                    <select
+                                        value={selectedTemplateId}
+                                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                                        className="w-full bg-[#111722] border border-surface-border text-white text-sm rounded-lg p-3.5 focus:ring-2 focus:ring-primary focus:outline-none"
+                                    >
                                         {availableTemplates.length > 0 ? (
                                             availableTemplates.map(t => (
                                                 <option key={t.id} value={t.id}>{t.name} ({t.difficulty})</option>
@@ -248,33 +301,84 @@ export const AgentRuns: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="grid grid-cols-2 gap-6">
-                                    <Input label="Expiration" placeholder="24 Hours" />
-                                    <Input label="Max Attempts" placeholder="3" type="number" />
+                                    <Input label="Expiration" placeholder="24 Hours" disabled />
+                                    <Input label="Max Attempts" placeholder="Unlimited" disabled />
                                 </div>
-                                <Input label="Bind to Agent ID (Optional)" placeholder="e.g. agent_sha256_..." icon="fingerprint" />
-                                <Button className="w-full mt-2" icon="bolt">Generate Prompt</Button>
+                                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-xs text-blue-300">
+                                    Generates a cryptographically signed invite token linked to your admin account.
+                                </div>
+                                <Button
+                                    className="w-full mt-2"
+                                    icon="bolt"
+                                    onClick={handleGenerateInvite}
+                                    disabled={genLoading || !selectedTemplateId}
+                                >
+                                    {genLoading ? 'Generating...' : 'Generate Prompt'}
+                                </Button>
                             </div>
                         </div>
                         <div className="flex-1 flex flex-col gap-6">
-                            <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-2xl p-6">
-                                <h3 className="text-white font-bold mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-indigo-400">info</span> How it works</h3>
-                                <ul className="space-y-2 text-sm text-indigo-200/80">
-                                    <li>• The generated prompt contains a cryptographic challenge.</li>
-                                    <li>• Access is strictly limited by time and attempts.</li>
-                                </ul>
-                            </div>
-                            <div className="bg-black/40 border border-primary/50 rounded-2xl p-0 overflow-hidden shadow-2xl shadow-primary/10">
-                                <div className="bg-black/50 p-4 border-b border-white/5 flex justify-between items-center">
-                                    <span className="text-xs font-bold text-primary uppercase flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Generated String</span>
-                                    <span className="text-[10px] text-slate-500 font-mono">ID: 8X29-B422</span>
+                            {!generatedPrompt ? (
+                                <div className="h-full flex items-center justify-center text-slate-500 text-sm italic border-2 border-dashed border-surface-border rounded-2xl">
+                                    Select a template and generate a prompt to see it here.
                                 </div>
-                                <div className="p-5 flex flex-col gap-4">
-                                    <div className="font-mono text-sm text-slate-300 break-all bg-white/5 p-3 rounded border border-white/5">
-                                        PROMPT-AGENT-8X29-B422-VERIFIED-ACCESS-SIG-7782-9901-AB
+                            ) : (
+                                <>
+                                    <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-2xl p-6">
+                                        <h3 className="text-white font-bold mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-indigo-400">info</span> How it works</h3>
+                                        <ul className="space-y-2 text-sm text-indigo-200/80">
+                                            <li>• The prompt includes registration instructions and a signed token.</li>
+                                            <li>• Send this to your agent (or use it in your test script).</li>
+                                        </ul>
                                     </div>
-                                    <Button variant="secondary" icon="content_copy" className="w-full">Copy to Clipboard</Button>
-                                </div>
-                            </div>
+                                    <div className="bg-black/40 border border-primary/50 rounded-2xl p-0 overflow-hidden shadow-2xl shadow-primary/10">
+                                        <div className="bg-black/50 p-4 border-b border-white/5 flex justify-between items-center">
+                                            <span className="text-xs font-bold text-primary uppercase flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Generated Invite</span>
+                                        </div>
+                                        <div className="p-5 flex flex-col gap-4">
+                                            {/* Token Section */}
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex justify-between items-center">
+                                                    <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Invite Token</label>
+                                                    <span className="text-[10px] text-emerald-500 font-mono">Status: Active</span>
+                                                </div>
+                                                <div className="flex gap-2">
+
+                                                    <Input value={generatedPrompt.token} readOnly />
+
+                                                    <Button
+                                                        variant="secondary"
+                                                        icon={copyTokenToast ? 'check' : 'content_copy'}
+                                                        onClick={handleCopyToken}
+                                                        className="shrink-0 ml-1"
+                                                        title="Copy Token"
+                                                    >
+                                                        {copyTokenToast ? 'Copied' : 'Copy'}
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="h-px bg-white/5 w-full my-1"></div>
+
+                                            {/* Prompt Section */}
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Full Instructions</label>
+                                                <div className="font-mono text-[11px] leading-relaxed text-slate-400 break-all bg-[#0d1117] p-4 rounded-lg border border-white/5 whitespace-pre-wrap max-h-[160px] overflow-y-auto">
+                                                    {generatedPrompt.prompt}
+                                                </div>
+                                                <Button
+                                                    variant="secondary"
+                                                    icon={copyToast ? 'check' : 'content_copy'}
+                                                    className="w-full mt-1"
+                                                    onClick={handleCopyPrompt}
+                                                >
+                                                    {copyToast ? 'Copied Instructions!' : 'Copy Full Instructions'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 )}

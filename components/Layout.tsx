@@ -61,8 +61,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         <Link to="/dashboard" className={`text-sm font-medium transition-colors ${isActive('/dashboard')}`}>Dashboard</Link>
                         <Link to="/templates" className={`text-sm font-medium transition-colors ${isActive('/templates')}`}>Templates</Link>
                         <Link to="/agents" className={`text-sm font-medium transition-colors ${isActive('/agents')}`}>Agents</Link>
-                        <Link to="/agent-interviews" className={`text-sm font-medium transition-colors ${isActive('/agent-interviews')}`}>Interviews</Link>
-                        <Link to="/runs" className={`text-sm font-medium transition-colors ${isActive('/runs')}`}>Runs</Link>
+                        <Link to="/interviews" className={`text-sm font-medium transition-colors ${isActive('/interviews')}`}>Interviews</Link>
                         <Link to="/certificates" className={`text-sm font-medium transition-colors ${isActive('/certificates')}`}>Certificates</Link>
                     </nav>
 
@@ -149,8 +148,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                             <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className={`text-sm font-medium py-3 border-b border-surface-border/50 ${isActive('/dashboard')}`}>Dashboard</Link>
                             <Link to="/templates" onClick={() => setIsMobileMenuOpen(false)} className={`text-sm font-medium py-3 border-b border-surface-border/50 ${isActive('/templates')}`}>Templates</Link>
                             <Link to="/agents" onClick={() => setIsMobileMenuOpen(false)} className={`text-sm font-medium py-3 border-b border-surface-border/50 ${isActive('/agents')}`}>Agents</Link>
-                            <Link to="/agent-interviews" onClick={() => setIsMobileMenuOpen(false)} className={`text-sm font-medium py-3 border-b border-surface-border/50 ${isActive('/agent-interviews')}`}>Interviews</Link>
-                            <Link to="/runs" onClick={() => setIsMobileMenuOpen(false)} className={`text-sm font-medium py-3 border-b border-surface-border/50 ${isActive('/runs')}`}>Runs</Link>
+                            <Link to="/interviews" onClick={() => setIsMobileMenuOpen(false)} className={`text-sm font-medium py-3 border-b border-surface-border/50 ${isActive('/interviews')}`}>Interviews</Link>
                             <Link to="/certificates" onClick={() => setIsMobileMenuOpen(false)} className={`text-sm font-medium py-3 border-b border-surface-border/50 ${isActive('/certificates')}`}>Certificates</Link>
 
                             <div className="flex items-center justify-between py-3 mt-2" onClick={() => { setIsSettingsOpen(true); setIsMobileMenuOpen(false); }}>

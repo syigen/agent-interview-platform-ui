@@ -57,8 +57,8 @@ const AppContent: React.FC = () => {
       <Route path="/templates/*" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
       <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
       <Route path="/agents/:id" element={<ProtectedRoute><AgentProfileDetail /></ProtectedRoute>} />
-      <Route path="/agent-interviews" element={<ProtectedRoute><AgentInterviews /></ProtectedRoute>} />
-      <Route path="/runs" element={<ProtectedRoute><AgentRuns /></ProtectedRoute>} />
+      <Route path="/agents/:id" element={<ProtectedRoute><AgentProfileDetail /></ProtectedRoute>} />
+      <Route path="/interviews" element={<ProtectedRoute><AgentRuns /></ProtectedRoute>} />
       <Route path="/session" element={<ProtectedRoute><Console /></ProtectedRoute>} />
       <Route path="/certificates" element={<ProtectedRoute><CertificateList /></ProtectedRoute>} />
       <Route path="/certificate/:id" element={<ProtectedRoute><CertificateDetail /></ProtectedRoute>} />
