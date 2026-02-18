@@ -16,8 +16,8 @@ export const useAccessRequests = () => {
         // Fallback for when provider is missing (e.g. during initial render/tests) or if used outside
         return {
             requests: [],
-            addRequest: () => {},
-            markAsRead: () => {},
+            addRequest: () => { },
+            markAsRead: () => { },
             unreadCount: 0
         };
     }
@@ -25,28 +25,7 @@ export const useAccessRequests = () => {
 };
 
 export const AccessRequestProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [requests, setRequests] = useState<AccessRequest[]>([
-        {
-            id: 'req-1',
-            certificateId: 'CERT-8921-XJY',
-            certificateName: 'gpt-4o-mini-custom-v3',
-            requesterName: 'Cyberdyne Systems',
-            requesterContact: 'compliance@cyberdyne.net',
-            message: 'Requiring full audit logs for integration safety check.',
-            timestamp: '10 mins ago',
-            status: 'unread'
-        },
-        {
-            id: 'req-2',
-            certificateId: 'CERT-1102-MKA',
-            certificateName: 'Medical-Triage-v2',
-            requesterName: 'General Hospital IT',
-            requesterContact: 'admin@genhospital.org',
-            message: 'Verification of HIPAA compliance benchmarks.',
-            timestamp: '2 hours ago',
-            status: 'read'
-        }
-    ]);
+    const [requests, setRequests] = useState<AccessRequest[]>([]);
 
     const addRequest = (req: Omit<AccessRequest, 'id' | 'timestamp' | 'status'>) => {
         const newReq: AccessRequest = {
