@@ -43,17 +43,16 @@ export const AgentRuns: React.FC = () => {
         if (!selectedTemplate) return;
 
         // 1. Create Run in Backend
-        const agentName = `Simulated-Agent-${selectedTemplate.id.split('-')[1] || '007'}`;
-        const totalSteps = selectedTemplate.criteria ? selectedTemplate.criteria.length : 0;
+        const agentName = "Default Agent";
 
-        // We use a temporary ID for optimistic UI, but we'll replace it or use the real one.
-        // Actually, let's await the creation to get the real ID to avoid complexity.
-        // But to make it snappy we could use optimistic. For now, let's await.
+        // Use a fixed ID for the default simulator agent
+        const agentId = "DEFAULT_AGENT";
+        const totalSteps = selectedTemplate.criteria ? selectedTemplate.criteria.length : 0;
 
         let runId = '';
         try {
             const newRun = await dispatch(createRun({
-                agentId: 'SIM-AGENT-01',
+                agentId: agentId,
                 agentName: agentName,
                 status: 'running',
                 score: 0,

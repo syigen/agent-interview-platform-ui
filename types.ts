@@ -79,6 +79,7 @@ export interface Certificate {
     issuedAt: string;
     issuedBy?: string;
     dataHash: string;
+    agentSnapshot?: string; // JSON string with agent summary at issuance time
 }
 
 export interface AccessRequest {
@@ -90,4 +91,52 @@ export interface AccessRequest {
     message: string;
     timestamp: string;
     status: 'unread' | 'read';
+}
+
+export interface AgentSkill {
+    name: string;
+    declaredLevel: string;
+    evidence: string;
+}
+
+export interface AgentSkillClaim {
+    skillId: string;
+    proficiencyClaim: string;
+    evidence: string;
+    status: string;
+    createdAt: string;
+}
+
+export interface AgentSummary {
+    id: number;
+    agentId: string;
+    name: string;
+    version: string;
+    createdAt: string;
+    skillCount: number;
+    certificateCount: number;
+    latestScore?: number;
+}
+
+export interface AgentProfile {
+    id: number;
+    agentId: string;
+    clientRequestId: string;
+    name: string;
+    version: string;
+    fingerprint: string;
+    fingerprintMethod: string;
+    toolAccess: string;
+    skillMdHash: string;
+    createdAt: string;
+    workspaceFiles?: string; // JSON string
+    skills: AgentSkill[];
+    skillClaims: AgentSkillClaim[];
+    certificates: Certificate[];
+}
+
+export interface AgentUpdate {
+    name?: string;
+    version?: string;
+    workspaceFiles?: string; // JSON string
 }

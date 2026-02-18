@@ -4,6 +4,8 @@ import { Gateway } from './pages/Gateway';
 import { Dashboard } from './pages/Dashboard';
 import { Templates } from './pages/Templates';
 import { AgentRuns } from './pages/AgentRuns';
+import { Agents } from './pages/Agents';
+import { AgentProfileDetail } from './pages/AgentProfile';
 import { Console } from './pages/Console';
 import { Interview } from './pages/Interview';
 import { CertificateList } from './pages/Certificate';
@@ -13,15 +15,17 @@ const App: React.FC = () => {
   return (
     <Router>
       <Routes>
-          <Route path="/" element={<Gateway />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/templates/*" element={<Templates />} />
-          <Route path="/runs" element={<AgentRuns />} />
-          <Route path="/session" element={<Console />} />
-          <Route path="/interview" element={<Interview />} />
-          <Route path="/certificates" element={<CertificateList />} />
-          <Route path="/certificate/:id" element={<CertificateDetail />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/" element={<Gateway />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/templates/*" element={<Templates />} />
+        <Route path="/agents" element={<Agents />} />
+        <Route path="/agents/:id" element={<AgentProfileDetail />} />
+        <Route path="/runs" element={<AgentRuns />} />
+        <Route path="/session" element={<Console />} />
+        <Route path="/interview" element={<Interview />} />
+        <Route path="/certificates" element={<CertificateList />} />
+        <Route path="/certificate/:id" element={<CertificateDetail />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

@@ -7,6 +7,17 @@ import { Run, Certificate } from '../types';
 import { certificateService } from '../services/CertificateService';
 import { runService } from '../services/RunService';
 
+interface AgentSnapshotData {
+    agentId: string;
+    name: string;
+    version: string;
+    fingerprint: string;
+    fingerprintMethod: string;
+    toolAccess: string;
+    skillCount: number;
+    createdAt?: string;
+}
+
 export const CertificateDetail: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -47,6 +58,12 @@ export const CertificateDetail: React.FC = () => {
         catch { return []; }
     };
 
+    const getAgentSnapshot = (): AgentSnapshotData | null => {
+        if (!certificate?.agentSnapshot) return null;
+        try { return JSON.parse(certificate.agentSnapshot); }
+        catch { return null; }
+    };
+
     if (isLoading) {
         return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white">Loading Verification Data...</div>;
     }
@@ -56,6 +73,7 @@ export const CertificateDetail: React.FC = () => {
     }
 
     const skills = getSkills();
+    const agentSnapshot = getAgentSnapshot();
 
     return (
         <div className="min-h-screen bg-background-dark text-white font-display overflow-x-hidden relative">
@@ -133,6 +151,47 @@ export const CertificateDetail: React.FC = () => {
                                 ))}
                             </div>
 
+                            {/* Agent Summary Card */}
+                            {agentSnapshot && (
+                                <div className="rounded-xl bg-gradient-to-br from-indigo-950/60 to-[#13161c] border border-indigo-500/20 p-6 mb-10">
+                                    <div className="flex items-center justify-between mb-5">
+                                        <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-indigo-400 text-[18px]">smart_toy</span>
+                                            Agent Profile at Issuance
+                                        </h3>
+                                        <button
+                                            onClick={() => navigate(`/agents/${agentSnapshot.agentId}`)}
+                                            className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
+                                        >
+                                            View Profile
+                                            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                        {[
+                                            { icon: 'badge', label: 'Name', value: agentSnapshot.name },
+                                            { icon: 'tag', label: 'Version', value: agentSnapshot.version },
+                                            { icon: 'psychology', label: 'Skills', value: `${agentSnapshot.skillCount} registered` },
+                                            { icon: 'build', label: 'Tool Access', value: agentSnapshot.toolAccess },
+                                            { icon: 'fingerprint', label: 'Fingerprint Method', value: agentSnapshot.fingerprintMethod },
+                                            { icon: 'calendar_today', label: 'Registered', value: agentSnapshot.createdAt ? new Date(agentSnapshot.createdAt).toLocaleDateString() : 'N/A' },
+                                        ].map(({ icon, label, value }) => (
+                                            <div key={label} className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/5">
+                                                <span className="material-symbols-outlined text-indigo-400/70 text-[18px] mt-0.5 shrink-0">{icon}</span>
+                                                <div className="min-w-0">
+                                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">{label}</div>
+                                                    <div className="text-sm text-slate-200 font-medium truncate" title={value}>{value}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="mt-4 pt-4 border-t border-white/5">
+                                        <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Agent ID</div>
+                                        <code className="text-xs font-mono text-indigo-300/80">{agentSnapshot.agentId}</code>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Skills & Template Info */}
                             <div className="rounded-xl bg-[#13161c] border border-surface-border p-6 mb-10">
                                 <div className="flex justify-between items-start mb-4">
@@ -196,7 +255,6 @@ export const CertificateDetail: React.FC = () => {
                         <div className="space-y-4">
                             {runData.steps.reduce((acc: any[], step, index) => {
                                 if (step.gradingHistory && step.gradingHistory.length > 0) {
-                                    // Find the most recent interviewer question and agent answer before this step
                                     let question = null;
                                     let answer = null;
                                     if (runData.steps) {
@@ -210,13 +268,7 @@ export const CertificateDetail: React.FC = () => {
                                             }
                                         }
                                     }
-
-                                    acc.push({
-                                        step,
-                                        question,
-                                        answer,
-                                        number: acc.length + 1
-                                    });
+                                    acc.push({ step, question, answer, number: acc.length + 1 });
                                 }
                                 return acc;
                             }, []).map(({ step, question, answer, number }: any) => (
@@ -241,7 +293,6 @@ export const CertificateDetail: React.FC = () => {
                                                     <div className="text-sm text-slate-300 leading-relaxed font-mono whitespace-pre-wrap">{question.content}</div>
                                                 </div>
                                             )}
-
                                             {answer && (
                                                 <div className="bg-[#11141a] rounded-lg p-4 border border-surface-border/50">
                                                     <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-bold">Agent Answer</div>
