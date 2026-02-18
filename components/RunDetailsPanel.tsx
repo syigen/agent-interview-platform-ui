@@ -11,7 +11,7 @@ const dummyLogs: Record<string, ChatStep[]> = {
         { id: '1', role: 'system', content: 'Session initialized.', timestamp: '00:00:01', status: 'info' },
         { id: '2', role: 'interviewer', content: 'Explain recursion.', timestamp: '00:00:05', status: 'info' },
         { id: '3', role: 'agent', content: 'Recursion is a function calling itself.', timestamp: '00:00:08', status: 'pass' },
-        { id: '4', role: 'system', content: 'Basic definition provided.', timestamp: '00:00:09', status: 'pass', score: 85, category: 'Knowledge', gradingHistory: [{ source: 'ai', score: 85, reasoning: 'Basic definition provided.', timestamp: '00:00:09' }] }
+        { id: '4', role: 'system', content: 'Basic definition provided.', timestamp: '00:00:09', status: 'pass', score: 85, category: 'Knowledge', gradingHistory: [{ source: 'ai', score: 85, reasoning: 'Basic definition provided.', createdAt: new Date().toISOString() }] }
     ]
 };
 
@@ -79,7 +79,7 @@ const GradingHistoryItem: React.FC<GradingHistoryItemProps> = ({ entry, isElecte
                             {entry.source === 'human' ? 'Human Review' : 'AI Graded'}
                         </span>
                         <span className="text-[10px] text-slate-500 font-mono opacity-60">
-                            Created: {new Date(entry.timestamp).toLocaleString(undefined, {
+                            Created: {new Date(entry.createdAt).toLocaleString(undefined, {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric',
@@ -291,7 +291,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                 source,
                 score: newScore,
                 reasoning: note,
-                timestamp: new Date().toISOString()
+                createdAt: new Date().toISOString()
             };
 
             // Preserve existing state if history is empty
@@ -301,13 +301,13 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                     source: step.isHumanGraded ? 'human' : 'ai',
                     score: step.score || 0,
                     reasoning: step.humanNote || step.content,
-                    timestamp: step.timestamp // This is already a datetime string from DB/API
+                    createdAt: step.timestamp // This is already a datetime string from DB/API
                 });
             }
             // Reset isSelected for all, then set for new entry
             const updatedHistory = history.map(h => ({ ...h, isSelected: false }));
             newEntry.isSelected = true;
-            newEntry.electedAt = newEntry.timestamp; // Inherit creation time as election time for new entries
+            newEntry.electedAt = newEntry.createdAt; // Inherit creation time as election time for new entries
             updatedHistory.push(newEntry);
 
             updatedStep = {
@@ -585,7 +585,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                     source: step.isHumanGraded ? 'human' : 'ai',
                                     score: step.score || 0,
                                     reasoning: step.humanNote || step.content,
-                                    timestamp: step.timestamp
+                                    createdAt: step.timestamp
                                 } as GradeEntry];
 
                             return (

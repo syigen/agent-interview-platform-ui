@@ -13,7 +13,7 @@ export interface GradeEntry {
     source: 'ai' | 'human';
     score: number;
     reasoning?: string;
-    timestamp: string;
+    createdAt: string;
     isSelected?: boolean;
     electedAt?: string;
 }
