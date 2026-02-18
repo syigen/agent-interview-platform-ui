@@ -22,6 +22,8 @@ interface RunDetailsPanelProps {
     autoEvaluate?: boolean;
     /** Called after autoEvaluate loop completes (success or cancelled) */
     onEvaluationComplete?: () => void;
+    /** Called when the run object is updated (e.g. status change) */
+    onRunUpdate?: (run: Run) => void;
 }
 
 interface RerunError {
@@ -204,7 +206,7 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
     );
 }
 
-export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose, autoEvaluate, onEvaluationComplete }) => {
+export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose, autoEvaluate, onEvaluationComplete, onRunUpdate }) => {
     const navigate = useNavigate();
     const [localLogs, setLocalLogs] = useState<ChatStep[]>([]);
     const [originalLogs, setOriginalLogs] = useState<ChatStep[] | null>(null);
@@ -599,10 +601,9 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose, 
         try {
             const updatedRun = await runService.evaluateRun(run.id); // This calls backend evaluate endpoint
             setLocalLogs(updatedRun.steps || []);
-            // Update average score locally? Or rely on props update?
-            // Local logs update triggers re-render.
-            // But 'run' prop is from parent. We should strictly refetch runs in parent or dispatch action.
-            // But simplest is to update local logs.
+            if (onRunUpdate) {
+                onRunUpdate(updatedRun);
+            }
         } catch (err) {
             console.error("Evaluation failed", err);
         } finally {

@@ -253,9 +253,13 @@ export const AgentRuns: React.FC = () => {
         }
     };
 
+    const handleRunUpdate = (updatedRun: Run) => {
+        dispatch(updateRunLocal(updatedRun));
+    };
+
     return (
         <Layout>
-            <RunDetailsPanel run={viewingRun} onClose={() => setViewingRunId(null)} />
+            <RunDetailsPanel run={viewingRun} onClose={() => setViewingRunId(null)} onRunUpdate={handleRunUpdate} />
             <RunSimulationModal
                 isOpen={showSimulationModal}
                 onClose={() => setShowSimulationModal(false)}
