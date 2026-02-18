@@ -224,6 +224,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose, 
     const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(new Set());
     const [addingReviewForStep, setAddingReviewForStep] = useState<string | null>(null);
     const [isGeneratingCertificate, setIsGeneratingCertificate] = useState(false);
+    const [isEvaluating, setIsEvaluating] = useState(false);
 
     const toggleHistory = (stepId: string) => {
         setExpandedHistoryIds(prev => {
@@ -592,6 +593,204 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose, 
         }
     };
 
+    const handleRunEvaluation = async () => {
+        if (!run) return;
+        setIsEvaluating(true);
+        try {
+            const updatedRun = await runService.evaluateRun(run.id); // This calls backend evaluate endpoint
+            setLocalLogs(updatedRun.steps || []);
+            // Update average score locally? Or rely on props update?
+            // Local logs update triggers re-render.
+            // But 'run' prop is from parent. We should strictly refetch runs in parent or dispatch action.
+            // But simplest is to update local logs.
+        } catch (err) {
+            console.error("Evaluation failed", err);
+        } finally {
+            setIsEvaluating(false);
+        }
+    };
+
+    const renderGradePill = (step: ChatStep, idx: number) => {
+        // Construct valid history
+        const history = step.gradingHistory && step.gradingHistory.length > 0
+            ? [...step.gradingHistory]
+            : [{
+                source: step.isHumanGraded ? 'human' : 'ai',
+                score: step.score || 0,
+                reasoning: step.humanNote || step.content,
+                createdAt: step.timestamp
+            } as GradeEntry];
+
+        const isProcessing = regradingStepId === step.id;
+
+        return (
+            <div className="flex justify-center w-full">
+                {isGradingMode ? (
+                    <div className="flex flex-col gap-6 w-full max-w-lg relative animate-fade-in-up">
+                        {/* Timeline Track */}
+                        <div className="absolute left-[27px] top-6 bottom-6 w-0.5 bg-surface-border -z-10"></div>
+
+                        {(() => {
+                            // Identify the elected entry
+                            let selectedIndex = history.findIndex(entry =>
+                                entry.isSelected ?? (entry.score === step.score &&
+                                    entry.source === (step.isHumanGraded ? 'human' : 'ai') &&
+                                    entry.reasoning === (step.isHumanGraded ? step.humanNote : step.content))
+                            );
+
+                            // Default to last if none explicitly matched (shouldn't happen with correct data)
+                            if (selectedIndex === -1) selectedIndex = history.length - 1;
+
+                            const selectedEntry = history[selectedIndex];
+
+                            // Get others and reverse them (latest first)
+                            const otherEntries = history
+                                .map((entry, index) => ({ entry, originalIndex: index }))
+                                .filter(item => item.originalIndex !== selectedIndex)
+                                .reverse();
+
+                            return (
+                                <>
+                                    {/* 1. Elected Entry (Top) */}
+                                    <GradingHistoryItem
+                                        key={`selected-${selectedIndex}`}
+                                        entry={selectedEntry}
+                                        isElected={true}
+                                        onElect={() => { }} // Already elected
+                                    />
+
+                                    {/* 2. Add Button & Form Panel */}
+                                    <div className="flex flex-col items-center gap-4 my-2">
+                                        {!addingReviewForStep && (
+                                            <div className="w-full flex items-center gap-4">
+                                                <div className="h-px bg-surface-border flex-1"></div>
+                                                <Button
+                                                    variant="secondary"
+                                                    className="rounded-full size-8 p-0 flex items-center justify-center border-dashed border-slate-500 text-slate-400 hover:text-white hover:border-white"
+                                                    onClick={() => setAddingReviewForStep(step.id)}
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">add</span>
+                                                </Button>
+                                                <div className="h-px bg-surface-border flex-1"></div>
+                                            </div>
+                                        )}
+
+                                        {addingReviewForStep === step.id && (
+                                            <div className="w-full animate-fade-in-up">
+                                                <GradingForm
+                                                    currentScore={step.score || 0}
+                                                    onSubmit={(score, note) => {
+                                                        updateStepGrade(step.id, 'human', score, note);
+                                                        setAddingReviewForStep(null);
+                                                    }}
+                                                    onAIReGrade={async () => {
+                                                        await handleAIReGrade(step.id, idx);
+                                                        setAddingReviewForStep(null);
+                                                    }}
+                                                    isProcessing={isProcessing}
+                                                />
+                                                <div className="flex justify-center mt-2">
+                                                    <Button variant="ghost" className="text-xs text-slate-500" onClick={() => setAddingReviewForStep(null)}>Cancel</Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 3. Other Entries (Latest First) */}
+                                    {otherEntries.map(({ entry, originalIndex }) => (
+                                        <GradingHistoryItem
+                                            key={originalIndex}
+                                            entry={entry}
+                                            isElected={false}
+                                            onElect={() => handleElectEntry(step.id, originalIndex)}
+                                        />
+                                    ))}
+                                </>
+                            );
+                        })()}
+                    </div>
+                ) : (
+                    // View Mode Pill
+                    <div className="flex flex-col items-center gap-2 z-10 max-w-lg w-full">
+                        <div
+                            onClick={() => toggleHistory(step.id)}
+                            className={`
+                            flex items-center gap-3 px-4 py-1.5 rounded-full border shadow-lg relative transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95
+                            ${isProcessing ? 'scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]' : ''}
+                            ${(step.score || 0) >= 90 ? 'bg-[#062c1e] border-emerald-500/30 text-emerald-400' :
+                                    (step.score || 0) >= 70 ? 'bg-[#2e1d05] border-yellow-500/30 text-yellow-400' :
+                                        'bg-[#2c0b0e] border-red-500/30 text-red-400'}
+                         `}>
+                            <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                                {step.isHumanGraded ? (
+                                    <span className="flex items-center gap-1 text-yellow-400"><span className="material-symbols-outlined text-[14px]">person_edit</span> Human</span>
+                                ) : (
+                                    <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">auto_awesome</span> AI Graded</span>
+                                )}
+                            </span>
+                            <div className="w-px h-3 bg-current opacity-20"></div>
+                            <span className="font-mono font-bold">{step.score}/100</span>
+                            <span className={`material-symbols-outlined text-[16px] transition-transform duration-300 ${expandedHistoryIds.has(step.id) ? 'rotate-180' : ''}`}>expand_more</span>
+                        </div>
+
+                        {step.gradingHistory && step.gradingHistory.length > 1 && !expandedHistoryIds.has(step.id) && (
+                            <div className="text-[10px] text-slate-600 bg-surface-dark px-2 py-0.5 rounded border border-surface-border mt-1">
+                                {step.gradingHistory.length} revisions available
+                            </div>
+                        )}
+
+                        {/* Expanded History View */}
+                        {expandedHistoryIds.has(step.id) && step.gradingHistory && step.gradingHistory.length > 0 && (
+                            <div className="flex flex-col gap-3 w-full animate-fade-in-up mt-4">
+                                <div className="text-[10px] font-bold uppercase text-slate-500 text-center mb-1">Evaluation Details</div>
+                                {(() => {
+                                    // Construct history again or reuse from closure?
+                                    // Let's copy logic for cleanliness
+                                    const history = step.gradingHistory!;
+                                    let selectedIndex = history.findIndex(entry =>
+                                        entry.isSelected ?? (entry.score === step.score &&
+                                            entry.source === (step.isHumanGraded ? 'human' : 'ai') &&
+                                            entry.reasoning === (step.isHumanGraded ? step.humanNote : step.content))
+                                    );
+                                    if (selectedIndex === -1) selectedIndex = history.length - 1;
+                                    const selectedEntry = history[selectedIndex];
+                                    const otherEntries = history
+                                        .map((entry, index) => ({ entry, originalIndex: index }))
+                                        .filter(item => item.originalIndex !== selectedIndex)
+                                        .reverse();
+
+                                    return (
+                                        <>
+                                            <GradingHistoryItem
+                                                key={`selected-${selectedIndex}`}
+                                                entry={selectedEntry}
+                                                isElected={true}
+                                                onElect={() => { }}
+                                                readOnly={true}
+                                            />
+                                            {otherEntries.length > 0 && (
+                                                <div className="w-full h-px bg-surface-border my-2 opacity-50"></div>
+                                            )}
+                                            {otherEntries.map(({ entry, originalIndex }) => (
+                                                <GradingHistoryItem
+                                                    key={originalIndex}
+                                                    entry={entry}
+                                                    isElected={false}
+                                                    onElect={() => { }}
+                                                    readOnly={true}
+                                                />
+                                            ))}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
 
     return (
         <div className="fixed inset-0 z-[100] flex justify-end">
@@ -682,249 +881,66 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose, 
                             ${isPendingReRun ? 'opacity-30 blur-[1px] grayscale' : 'opacity-100'}`;
 
                         if (isScoreStep) {
-                            // Construct valid history
-                            const history = step.gradingHistory && step.gradingHistory.length > 0
-                                ? [...step.gradingHistory]
-                                : [{
-                                    source: step.isHumanGraded ? 'human' : 'ai',
-                                    score: step.score || 0,
-                                    reasoning: step.humanNote || step.content,
-                                    createdAt: step.timestamp
-                                } as GradeEntry];
-
                             return (
                                 <div key={step.id} id={`step-${step.id}`} className={containerClasses}>
                                     <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-surface-border -z-10"></div>
-                                    <div className="flex justify-center w-full">
-                                        {isGradingMode ? (
-                                            <div className="flex flex-col gap-6 w-full max-w-lg relative animate-fade-in-up">
-                                                {/* Timeline Track */}
-                                                <div className="absolute left-[27px] top-6 bottom-6 w-0.5 bg-surface-border -z-10"></div>
-
-                                                {(() => {
-                                                    // Identify the elected entry
-                                                    let selectedIndex = history.findIndex(entry =>
-                                                        entry.isSelected ?? (entry.score === step.score &&
-                                                            entry.source === (step.isHumanGraded ? 'human' : 'ai') &&
-                                                            entry.reasoning === (step.isHumanGraded ? step.humanNote : step.content))
-                                                    );
-
-                                                    // Default to last if none explicitly matched (shouldn't happen with correct data)
-                                                    if (selectedIndex === -1) selectedIndex = history.length - 1;
-
-                                                    const selectedEntry = history[selectedIndex];
-
-                                                    // Get others and reverse them (latest first)
-                                                    const otherEntries = history
-                                                        .map((entry, index) => ({ entry, originalIndex: index }))
-                                                        .filter(item => item.originalIndex !== selectedIndex)
-                                                        .reverse();
-
-                                                    return (
-                                                        <>
-                                                            {/* 1. Elected Entry (Top) */}
-                                                            <GradingHistoryItem
-                                                                key={`selected-${selectedIndex}`}
-                                                                entry={selectedEntry}
-                                                                isElected={true}
-                                                                onElect={() => { }} // Already elected
-                                                            />
-
-                                                            {/* 2. Add Button & Form Panel */}
-                                                            <div className="flex flex-col items-center gap-4 my-2">
-                                                                {!addingReviewForStep && (
-                                                                    <div className="w-full flex items-center gap-4">
-                                                                        <div className="h-px bg-surface-border flex-1"></div>
-                                                                        <Button
-                                                                            variant="secondary"
-                                                                            className="rounded-full size-8 p-0 flex items-center justify-center border-dashed border-slate-500 text-slate-400 hover:text-white hover:border-white"
-                                                                            onClick={() => setAddingReviewForStep(step.id)}
-                                                                        >
-                                                                            <span className="material-symbols-outlined text-lg">add</span>
-                                                                        </Button>
-                                                                        <div className="h-px bg-surface-border flex-1"></div>
-                                                                    </div>
-                                                                )}
-
-                                                                {addingReviewForStep === step.id && (
-                                                                    <div className="w-full animate-fade-in-up">
-                                                                        <GradingForm
-                                                                            currentScore={step.score || 0}
-                                                                            onSubmit={(score, note) => {
-                                                                                updateStepGrade(step.id, 'human', score, note);
-                                                                                setAddingReviewForStep(null);
-                                                                            }}
-                                                                            onAIReGrade={async () => {
-                                                                                await handleAIReGrade(step.id, idx);
-                                                                                setAddingReviewForStep(null);
-                                                                            }}
-                                                                            isProcessing={isProcessing}
-                                                                        />
-                                                                        <div className="flex justify-center mt-2">
-                                                                            <Button variant="ghost" className="text-xs text-slate-500" onClick={() => setAddingReviewForStep(null)}>Cancel</Button>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-
-                                                            {/* 3. Other Entries (Latest First) */}
-                                                            {otherEntries.map(({ entry, originalIndex }) => (
-                                                                <GradingHistoryItem
-                                                                    key={originalIndex}
-                                                                    entry={entry}
-                                                                    isElected={false}
-                                                                    onElect={() => handleElectEntry(step.id, originalIndex)}
-                                                                />
-                                                            ))}
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                        ) : (
-                                            // View Mode Pill
-                                            <div className="flex flex-col items-center gap-2 z-10 max-w-lg w-full">
-                                                <div
-                                                    onClick={() => toggleHistory(step.id)}
-                                                    className={`
-                                                    flex items-center gap-3 px-4 py-1.5 rounded-full border shadow-lg relative transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95
-                                                    ${isProcessing ? 'scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]' : ''}
-                                                    ${(step.score || 0) >= 90 ? 'bg-[#062c1e] border-emerald-500/30 text-emerald-400' :
-                                                            (step.score || 0) >= 70 ? 'bg-[#2e1d05] border-yellow-500/30 text-yellow-400' :
-                                                                'bg-[#2c0b0e] border-red-500/30 text-red-400'}
-                                                 `}>
-                                                    <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1">
-                                                        {step.isHumanGraded ? (
-                                                            <span className="flex items-center gap-1 text-yellow-400"><span className="material-symbols-outlined text-[14px]">person_edit</span> Human</span>
-                                                        ) : (
-                                                            <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">auto_awesome</span> AI Graded</span>
-                                                        )}
-                                                    </span>
-                                                    <div className="w-px h-3 bg-current opacity-20"></div>
-                                                    <span className="font-mono font-bold">{step.score}/100</span>
-                                                    <span className={`material-symbols-outlined text-[16px] transition-transform duration-300 ${expandedHistoryIds.has(step.id) ? 'rotate-180' : ''}`}>expand_more</span>
-                                                </div>
-
-                                                {step.gradingHistory && step.gradingHistory.length > 1 && !expandedHistoryIds.has(step.id) && (
-                                                    <div className="text-[10px] text-slate-600 bg-surface-dark px-2 py-0.5 rounded border border-surface-border mt-1">
-                                                        {step.gradingHistory.length} revisions available
-                                                    </div>
-                                                )}
-
-                                                {/* Expanded History View */}
-                                                {expandedHistoryIds.has(step.id) && history.length > 0 && (
-                                                    <div className="flex flex-col gap-3 w-full animate-fade-in-up mt-4">
-                                                        <div className="text-[10px] font-bold uppercase text-slate-500 text-center mb-1">Evaluation Details</div>
-                                                        {(() => {
-                                                            // Identify the elected entry
-                                                            let selectedIndex = history.findIndex(entry =>
-                                                                entry.isSelected ?? (entry.score === step.score &&
-                                                                    entry.source === (step.isHumanGraded ? 'human' : 'ai') &&
-                                                                    entry.reasoning === (step.isHumanGraded ? step.humanNote : step.content))
-                                                            );
-
-                                                            // Default to last if none explicitly matched
-                                                            if (selectedIndex === -1) selectedIndex = history.length - 1;
-
-                                                            const selectedEntry = history[selectedIndex];
-
-                                                            // Get others and reverse them (latest first)
-                                                            const otherEntries = history
-                                                                .map((entry, index) => ({ entry, originalIndex: index }))
-                                                                .filter(item => item.originalIndex !== selectedIndex)
-                                                                .reverse();
-
-                                                            return (
-                                                                <>
-                                                                    {/* 1. Elected Entry (Top) */}
-                                                                    <GradingHistoryItem
-                                                                        key={`selected-${selectedIndex}`}
-                                                                        entry={selectedEntry}
-                                                                        isElected={true}
-                                                                        onElect={() => { }}
-                                                                        readOnly={true}
-                                                                    />
-
-                                                                    {/* 2. Divider for others */}
-                                                                    {otherEntries.length > 0 && (
-                                                                        <div className="w-full h-px bg-surface-border my-2 opacity-50"></div>
-                                                                    )}
-
-                                                                    {/* 3. Other Entries (Latest First) */}
-                                                                    {otherEntries.map(({ entry, originalIndex }) => (
-                                                                        <GradingHistoryItem
-                                                                            key={originalIndex}
-                                                                            entry={entry}
-                                                                            isElected={false}
-                                                                            onElect={() => { }}
-                                                                            readOnly={true}
-                                                                        />
-                                                                    ))}
-                                                                </>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
+                                    {renderGradePill(step, idx)}
                                 </div>
                             );
                         }
 
-                        // Regular Message
+                        // Regular Message + Optional Grade Pill
                         return (
-                            <div key={step.id} className={`relative pl-8 group animate-fade-in-up ${isPendingReRun ? 'opacity-30 blur-[1px]' : ''} transition-all duration-500`}>
-                                {!isScoreStep && idx !== localLogs.length - 1 && localLogs[idx + 1].role !== 'system' && (
-                                    <div className="absolute left-[11px] top-8 bottom-[-24px] w-px bg-surface-border group-last:hidden"></div>
-                                )}
+                            <React.Fragment key={step.id}>
+                                <div className={`relative pl-8 group animate-fade-in-up ${isPendingReRun ? 'opacity-30 blur-[1px]' : ''} transition-all duration-500`}>
+                                    {!isScoreStep && idx !== localLogs.length - 1 && localLogs[idx + 1].role !== 'system' && (
+                                        <div className="absolute left-[11px] top-8 bottom-[-24px] w-px bg-surface-border group-last:hidden"></div>
+                                    )}
 
-                                <div className={`absolute left-0 top-0 size-6 rounded-full border-2 flex items-center justify-center z-10 
+                                    <div className={`absolute left-0 top-0 size-6 rounded-full border-2 flex items-center justify-center z-10 
                                     ${step.role === 'agent' ? 'border-primary bg-[#111722]' :
-                                        step.role === 'system' ? 'border-slate-600 bg-slate-600' :
-                                            'border-emerald-500 bg-[#111722]'}`}>
-                                    {step.role === 'agent' && <span className="material-symbols-outlined text-[14px] text-primary">smart_toy</span>}
-                                    {step.role === 'interviewer' && <span className="material-symbols-outlined text-[14px] text-emerald-500">person</span>}
-                                    {step.role === 'system' && <span className="material-symbols-outlined text-[14px] text-white">terminal</span>}
-                                </div>
+                                            step.role === 'system' ? 'border-slate-600 bg-slate-600' :
+                                                'border-emerald-500 bg-[#111722]'}`}>
+                                        {step.role === 'agent' && <span className="material-symbols-outlined text-[14px] text-primary">smart_toy</span>}
+                                        {step.role === 'interviewer' && <span className="material-symbols-outlined text-[14px] text-emerald-500">person</span>}
+                                        {step.role === 'system' && <span className="material-symbols-outlined text-[14px] text-white">terminal</span>}
+                                    </div>
 
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-baseline justify-between">
-                                        <span className={`text-xs font-bold uppercase tracking-wider 
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-baseline justify-between">
+                                            <span className={`text-xs font-bold uppercase tracking-wider 
                                             ${step.role === 'agent' ? 'text-primary' :
-                                                step.role === 'system' ? 'text-slate-500' :
-                                                    'text-emerald-400'}`}>
-                                            {step.role}
-                                        </span>
-                                        <span className="text-[10px] font-mono text-slate-600">{step.timestamp}</span>
-                                    </div>
-                                    <div className={`p-4 rounded-lg text-sm leading-relaxed border relative whitespace-pre-wrap
+                                                    step.role === 'system' ? 'text-slate-500' :
+                                                        'text-emerald-400'}`}>
+                                                {step.role}
+                                            </span>
+                                            <span className="text-[10px] font-mono text-slate-600">{step.timestamp}</span>
+                                        </div>
+                                        <div className={`p-4 rounded-lg text-sm leading-relaxed border relative whitespace-pre-wrap
                                         ${step.role === 'agent' ? 'bg-primary/5 border-primary/20 text-slate-200' :
-                                            step.role === 'system' ? 'bg-surface-dark border-surface-border text-slate-400 font-mono text-xs' :
-                                                'bg-[#1a2332] border-surface-border text-white'}`}>
-                                        {step.content}
-                                    </div>
+                                                step.role === 'system' ? 'bg-surface-dark border-surface-border text-slate-400 font-mono text-xs' :
+                                                    'bg-[#1a2332] border-surface-border text-white'}`}>
+                                            {step.content}
+                                        </div>
 
-                                    {/* Inline score badge for agent answers during/after evaluation */}
-                                    {step.role === 'agent' && (
-                                        isProcessing ? (
+                                        {/* Inline score processing indicator only */}
+                                        {step.role === 'agent' && isProcessing && (
                                             <div className="flex items-center gap-2 mt-2 text-xs text-indigo-400 animate-pulse">
                                                 <span className="material-symbols-outlined text-[14px]">smart_toy</span>
                                                 Evaluating answer…
                                             </div>
-                                        ) : typeof step.score === 'number' ? (
-                                            <div className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full border text-xs font-semibold animate-fade-in-up
-                                                ${step.score >= 70
-                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                    : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                                <span className="material-symbols-outlined text-[13px]">
-                                                    {step.score >= 70 ? 'check_circle' : 'cancel'}
-                                                </span>
-                                                Score: {step.score}%
-                                            </div>
-                                        ) : null
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+
+                                {/* Render Grade Pill Separately for Agent steps with scores */}
+                                {step.role === 'agent' && typeof step.score === 'number' && (
+                                    <div className={containerClasses + " mt-4"}>
+                                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-surface-border -z-10"></div>
+                                        {renderGradePill(step, idx)}
+                                    </div>
+                                )}
+                            </React.Fragment>
                         );
                     })}
 
@@ -981,6 +997,19 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose, 
                                                 <Button variant="secondary" icon="fact_check" onClick={() => setIsGradingMode(true)} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">
                                                     Human Review
                                                 </Button>
+                                                {/* Only show Run Evaluation if run is in progress (submitted but not evaluated) */}
+                                                {run.status === 'in_progress' && (
+                                                    <Button
+                                                        variant="secondary"
+                                                        icon="smart_toy"
+                                                        onClick={handleRunEvaluation}
+                                                        disabled={isEvaluating}
+                                                        className="whitespace-nowrap bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20"
+                                                    >
+                                                        {isEvaluating ? 'Evaluating...' : 'Run Evaluation'}
+                                                    </Button>
+                                                )}
+
                                                 {run.status === 'pass' && (
                                                     <Button variant="secondary" icon="verified" onClick={handleGenerateCertificate} disabled={isRunningFullRegrade || isGeneratingCertificate} className="whitespace-nowrap">
                                                         {isGeneratingCertificate ? 'Issuing...' : 'Generate Certificate'}
@@ -997,6 +1026,6 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose, 
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     )
 }

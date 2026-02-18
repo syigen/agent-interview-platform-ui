@@ -43,6 +43,16 @@ class RunService {
         return response.json();
     }
 
+    async evaluateRun(runId: string): Promise<Run> {
+        const response = await apiFetch(`${API_BASE_URL}/${runId}/evaluate`, {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to trigger evaluation');
+        }
+        return response.json();
+    }
+
     async addStep(runId: string, stepData: any): Promise<any> {
         const response = await apiFetch(API_BASE_URL + `/${runId}/steps`, {
             method: 'POST',
