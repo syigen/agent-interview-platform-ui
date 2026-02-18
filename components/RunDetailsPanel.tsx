@@ -228,7 +228,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
         else if (lastStep.role === 'agent') pendingRole = 'system';
     }
 
-    const scoredSteps = localLogs.filter(s => s.score !== undefined);
+    const scoredSteps = localLogs.filter(s => typeof s.score === 'number');
     const avgScore = scoredSteps.length > 0
         ? Math.round(scoredSteps.reduce((acc, curr) => acc + (curr.score || 0), 0) / scoredSteps.length)
         : 0;
@@ -315,7 +315,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
     const executeRegradeLoop = async (startIndex: number) => {
         const stepsToRegrade = localLogs
             .map((step, index) => ({ step, index, queueIndex: -1 }))
-            .filter(({ step }) => step.role === 'system' && step.score !== undefined);
+            .filter(({ step }) => step.role === 'system' && typeof step.score === 'number');
 
         stepsToRegrade.forEach((item, idx) => item.queueIndex = idx);
 
@@ -457,7 +457,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth bg-gradient-to-b from-[#111722] to-[#0d121c]">
                     {localLogs.map((step, idx) => {
-                        const isScoreStep = step.role === 'system' && step.score !== undefined;
+                        const isScoreStep = step.role === 'system' && typeof step.score === 'number';
                         const isProcessing = regradingStepId === step.id;
 
                         const isPendingReRun = isRunningFullRegrade && idx > currentRegradeIndex && !isProcessing;

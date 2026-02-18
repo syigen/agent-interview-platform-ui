@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, Button, Input, Badge } from '../components/ui/Common';
 import { Run, ChatStep } from '../types';
@@ -6,14 +6,23 @@ import { useNavigate } from 'react-router-dom';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
 import { RunSimulationModal } from '../components/RunSimulationModal';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { addRun, updateRunStatus } from '../store/slices/runSlice';
+import { addRun, updateRunLocal, fetchRuns, createRun } from '../store/slices/runSlice';
+import { fetchTemplates } from '../store/slices/templateSlice';
 import { llmService } from '../services/LLMService';
+import { runService } from '../services/RunService';
 
 export const AgentRuns: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const runs = useAppSelector((state) => state.runs.items);
     const templates = useAppSelector((state) => state.templates.items);
+
+    useEffect(() => {
+        dispatch(fetchRuns());
+        if (templates.length === 0) {
+            dispatch(fetchTemplates());
+        }
+    }, [dispatch, templates.length]);
 
     const [showGenerator, setShowGenerator] = useState(false);
     const [showSimulationModal, setShowSimulationModal] = useState(false);
@@ -33,31 +42,51 @@ export const AgentRuns: React.FC = () => {
         const selectedTemplate = templates.find(t => t.id === templateId);
         if (!selectedTemplate) return;
 
-        const runId = `RUN-${Math.floor(Math.random() * 9000) + 1000}`;
-        const agentName = `Simulated-Agent-${selectedTemplate.id.split('-')[1]}`;
+        // 1. Create Run in Backend
+        const agentName = `Simulated-Agent-${selectedTemplate.id.split('-')[1] || '007'}`;
         const totalSteps = selectedTemplate.criteria ? selectedTemplate.criteria.length : 0;
 
-        dispatch(addRun({
-            id: runId,
-            agentId: 'SIM-AGENT-01',
-            agentName: agentName,
-            timestamp: 'Just now',
-            status: 'running',
-            steps: [],
-            totalSteps: totalSteps
-        }));
+        // We use a temporary ID for optimistic UI, but we'll replace it or use the real one.
+        // Actually, let's await the creation to get the real ID to avoid complexity.
+        // But to make it snappy we could use optimistic. For now, let's await.
+
+        let runId = '';
+        try {
+            const newRun = await dispatch(createRun({
+                agentId: 'SIM-AGENT-01',
+                agentName: agentName,
+                status: 'running',
+                score: 0,
+                // We typically wouldn't send steps here, but the type allows it.
+                // The backend creates the ID.
+            })).unwrap(); // unwrap to get the result payload or throw error
+
+            runId = newRun.id;
+            // The run is already added to store by createRun.fulfilled
+        } catch (e) {
+            console.error("Failed to create run", e);
+            return;
+        }
 
         setViewingRunId(runId);
 
         const chatSteps: ChatStep[] = [];
-        chatSteps.push({
-            id: 'init',
+        const initStep = {
             role: 'system',
             content: `Simulation started for template: ${selectedTemplate.name}`,
-            timestamp: new Date().toLocaleTimeString(),
             status: 'info'
-        });
-        dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
+        };
+
+        // Persist Init Step
+        try {
+            const savedStep = await runService.addStep(runId, initStep);
+            chatSteps.push(savedStep); // Use the returned step with ID/Timestamp
+            dispatch(updateRunLocal({ id: runId, status: 'running', steps: [...chatSteps] }));
+        } catch (e) {
+            console.error("Failed to add init step", e);
+            // fallback for UI even if persist failed? 
+            // Ideally we stop or show error. For simulation, let's continue but warn.
+        }
 
         let earnedScore = 0;
         let potentialScore = 0;
@@ -68,15 +97,16 @@ export const AgentRuns: React.FC = () => {
                     const criterion = selectedTemplate.criteria[i];
 
                     await new Promise(r => setTimeout(r, 1000));
-                    const questionStep: ChatStep = {
-                        id: `q-${i}`,
+
+                    // Question Step
+                    const questionStepPayload = {
                         role: 'interviewer',
                         content: criterion.prompt,
-                        timestamp: new Date().toLocaleTimeString(),
                         status: 'info'
                     };
-                    chatSteps.push(questionStep);
-                    dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
+                    const savedQuestion = await runService.addStep(runId, questionStepPayload);
+                    chatSteps.push(savedQuestion);
+                    dispatch(updateRunLocal({ id: runId, status: 'running', steps: [...chatSteps] }));
 
                     await new Promise(r => setTimeout(r, 2000));
                     const agentAnswer = await llmService.simulateAgentResponse(
@@ -87,16 +117,16 @@ export const AgentRuns: React.FC = () => {
                         criterion.prompt
                     );
 
-                    const answerStep: ChatStep = {
-                        id: `a-${i}`,
+                    // Answer Step
+                    const answerStepPayload = {
                         role: 'agent',
                         content: agentAnswer,
-                        timestamp: new Date().toLocaleTimeString(),
                         status: 'info',
                         metadata: { 'model': 'gemini-3-flash-preview' }
                     };
-                    chatSteps.push(answerStep);
-                    dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
+                    const savedAnswer = await runService.addStep(runId, answerStepPayload);
+                    chatSteps.push(savedAnswer);
+                    dispatch(updateRunLocal({ id: runId, status: 'running', steps: [...chatSteps] }));
 
                     await new Promise(r => setTimeout(r, 1200));
                     const gradeResult = await llmService.evaluateResponse(
@@ -108,11 +138,10 @@ export const AgentRuns: React.FC = () => {
                     earnedScore += gradeResult.score;
                     potentialScore += 100;
 
-                    const gradeStep: ChatStep = {
-                        id: `g-${i}`,
+                    // Grade Step
+                    const gradeStepPayload = {
                         role: 'system',
                         content: gradeResult.reasoning,
-                        timestamp: new Date().toLocaleTimeString(),
                         status: gradeResult.score >= criterion.minScore ? 'pass' : 'fail',
                         score: gradeResult.score,
                         category: selectedTemplate.skills[0] || 'General',
@@ -121,11 +150,12 @@ export const AgentRuns: React.FC = () => {
                             source: 'ai',
                             score: gradeResult.score,
                             reasoning: gradeResult.reasoning,
-                            timestamp: new Date().toLocaleTimeString()
+                            timestamp: new Date().toISOString() // Backend expects datetime or string? Pydantic ISO is safe.
                         }]
                     };
-                    chatSteps.push(gradeStep);
-                    dispatch(updateRunStatus({ id: runId, status: 'running', steps: [...chatSteps] }));
+                    const savedGrade = await runService.addStep(runId, gradeStepPayload);
+                    chatSteps.push(savedGrade);
+                    dispatch(updateRunLocal({ id: runId, status: 'running', steps: [...chatSteps] }));
                 }
             }
 
@@ -133,25 +163,41 @@ export const AgentRuns: React.FC = () => {
             const finalAvg = potentialScore > 0 ? Math.round(earnedScore / (totalSteps)) : 0;
             const finalStatus = finalAvg >= 70 ? 'pass' : 'fail';
 
-            chatSteps.push({
-                id: 'end',
+            // End Step
+            const endStepPayload = {
                 role: 'system',
                 content: `Evaluation Complete. Final Score: ${finalAvg}/100`,
-                timestamp: new Date().toLocaleTimeString(),
                 status: finalStatus
-            });
+            };
+            const savedEnd = await runService.addStep(runId, endStepPayload);
+            chatSteps.push(savedEnd);
 
-            dispatch(updateRunStatus({
+            // Update Run Status in Backend & Frontend
+            // We use runService.updateRun via thunk or direct. 
+            // Since we want to update the store too, let's use the thunk if possible or just updateRunLocal + service call.
+            // But we created `updateRunStatus` thunk earlier.
+
+            // Wait, I replaced updateRunStatus with updateRunLocal in previous steps.
+            // I need to import updateRunStatus if I want to use it, or just use runService.updateRun directly and then updateRunLocal.
+            // The user wants persistence.
+
+            await runService.updateRun(runId, { status: finalStatus, score: finalAvg });
+
+            dispatch(updateRunLocal({
                 id: runId,
-                status: finalStatus,
+                status: finalStatus, // Cast if needed, but strings match
                 score: finalAvg,
                 steps: [...chatSteps]
             }));
 
         } catch (error) {
             console.error("Simulation failed", error);
-            chatSteps.push({ id: 'err', role: 'system', content: 'Simulation Error occurred.', timestamp: 'now', status: 'fail' });
-            dispatch(updateRunStatus({ id: runId, status: 'fail', steps: [...chatSteps] }));
+            const errStep = { role: 'system', content: 'Simulation Error occurred.', status: 'fail' };
+            await runService.addStep(runId, errStep); // Try to persist error
+            chatSteps.push({ ...errStep, id: 'err', timestamp: 'now' } as ChatStep); // Fallback obj
+
+            await runService.updateRun(runId, { status: 'fail' });
+            dispatch(updateRunLocal({ id: runId, status: 'fail', steps: [...chatSteps] }));
         }
     };
 
