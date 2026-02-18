@@ -1,11 +1,12 @@
 
 import { Run } from '../types';
+import { apiFetch } from './apiClient';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/runs`;
 
 class RunService {
     async getRuns(): Promise<Run[]> {
-        const response = await fetch(API_BASE_URL);
+        const response = await apiFetch(API_BASE_URL);
         if (!response.ok) {
             throw new Error('Failed to fetch runs');
         }
@@ -13,7 +14,7 @@ class RunService {
     }
 
     async getRun(id: string): Promise<Run> {
-        const response = await fetch(`${API_BASE_URL}/${id}`);
+        const response = await apiFetch(`${API_BASE_URL}/${id}`);
         if (!response.ok) {
             throw new Error('Failed to fetch run');
         }
@@ -21,11 +22,8 @@ class RunService {
     }
 
     async createRun(runData: Partial<Run>): Promise<Run> {
-        const response = await fetch(API_BASE_URL, {
+        const response = await apiFetch(API_BASE_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(runData),
         });
         if (!response.ok) {
@@ -35,11 +33,8 @@ class RunService {
     }
 
     async updateRun(id: string, runData: Partial<Run>): Promise<Run> {
-        const response = await fetch(API_BASE_URL + `/${id}`, {
+        const response = await apiFetch(API_BASE_URL + `/${id}`, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(runData),
         });
         if (!response.ok) {
@@ -49,11 +44,8 @@ class RunService {
     }
 
     async addStep(runId: string, stepData: any): Promise<any> {
-        const response = await fetch(API_BASE_URL + `/${runId}/steps`, {
+        const response = await apiFetch(API_BASE_URL + `/${runId}/steps`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(stepData),
         });
         if (!response.ok) {
@@ -63,11 +55,8 @@ class RunService {
     }
     async updateStep(runId: string, stepId: string, stepData: any): Promise<any> {
         // Ensure gradingHistory is included if present, as it might be needed for the backend to update correctly
-        const response = await fetch(`${API_BASE_URL}/${runId}/steps/${stepId}`, {
+        const response = await apiFetch(`${API_BASE_URL}/${runId}/steps/${stepId}`, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(stepData),
         });
         if (!response.ok) {
@@ -77,7 +66,7 @@ class RunService {
     }
 
     async issueCertificate(runId: string): Promise<any> {
-        const response = await fetch(`${API_BASE_URL}/${runId}/certificate`, {
+        const response = await apiFetch(`${API_BASE_URL}/${runId}/certificate`, {
             method: 'POST',
         });
         if (!response.ok) {
@@ -88,7 +77,7 @@ class RunService {
     }
 
     async getCertificate(runId: string): Promise<any> {
-        const response = await fetch(`${API_BASE_URL}/${runId}/certificate`);
+        const response = await apiFetch(`${API_BASE_URL}/${runId}/certificate`);
         if (!response.ok) {
             throw new Error('Failed to fetch certificate');
         }

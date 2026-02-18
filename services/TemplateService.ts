@@ -1,11 +1,12 @@
 
 import { Template } from '../types';
+import { apiFetch } from './apiClient';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/templates`;
 
 class TemplateService {
     async getTemplates(): Promise<Template[]> {
-        const response = await fetch(API_BASE_URL);
+        const response = await apiFetch(API_BASE_URL);
         if (!response.ok) {
             throw new Error('Failed to fetch templates');
         }
@@ -13,7 +14,7 @@ class TemplateService {
     }
 
     async getTemplate(id: string): Promise<Template> {
-        const response = await fetch(`${API_BASE_URL}/${id}`);
+        const response = await apiFetch(`${API_BASE_URL}/${id}`);
         if (!response.ok) {
             throw new Error('Failed to fetch template');
         }
@@ -21,11 +22,8 @@ class TemplateService {
     }
 
     async createTemplate(templateData: Omit<Template, 'id' | 'lastUpdated'>): Promise<Template> {
-        const response = await fetch(API_BASE_URL, {
+        const response = await apiFetch(API_BASE_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(templateData),
         });
         if (!response.ok) {
@@ -35,11 +33,8 @@ class TemplateService {
     }
 
     async updateTemplate(id: string, templateData: Partial<Template>): Promise<Template> {
-        const response = await fetch(`${API_BASE_URL}/${id}`, {
+        const response = await apiFetch(`${API_BASE_URL}/${id}`, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(templateData),
         });
         if (!response.ok) {
@@ -49,7 +44,7 @@ class TemplateService {
     }
 
     async deleteTemplate(id: string): Promise<void> {
-        const response = await fetch(`${API_BASE_URL}/${id}`, {
+        const response = await apiFetch(`${API_BASE_URL}/${id}`, {
             method: 'DELETE',
         });
         if (!response.ok) {
