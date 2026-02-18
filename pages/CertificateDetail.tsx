@@ -16,6 +16,9 @@ interface AgentSnapshotData {
     toolAccess: string;
     skillCount: number;
     createdAt?: string;
+    verifiedSkills?: string[];
+    skills?: any[];
+    skillClaims?: any[];
 }
 
 export const CertificateDetail: React.FC = () => {
@@ -189,6 +192,21 @@ export const CertificateDetail: React.FC = () => {
                                         <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Agent ID</div>
                                         <code className="text-xs font-mono text-indigo-300/80">{agentSnapshot.agentId}</code>
                                     </div>
+
+                                    {agentSnapshot.verifiedSkills && agentSnapshot.verifiedSkills.length > 0 && (
+                                        <div className="mt-4 pt-4 border-t border-white/5">
+                                            <div className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-1">
+                                                <span className="material-symbols-outlined text-[14px]">check_circle</span> Verified Skills
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {agentSnapshot.verifiedSkills.map(skill => (
+                                                    <span key={skill} className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">
+                                                        {skill}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
