@@ -489,6 +489,27 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
         setCurrentRegradeIndex(-1);
     };
 
+    const handleExport = async () => {
+        if (!run) return;
+        try {
+            const apiBase = `${(import.meta as any).env?.VITE_API_BASE_URL || ''}/api/runs`;
+            const response = await fetch(`${apiBase}/${run.id}/export`);
+            if (!response.ok) throw new Error(`Export failed: ${response.statusText}`);
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `run-${run.id}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Export failed', err);
+        }
+    };
+
+
     return (
         <div className="fixed inset-0 z-[100] flex justify-end">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isRunningFullRegrade && run.status !== 'running' && onClose()}></div>
@@ -854,7 +875,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                                 Certificate
                                             </Button>
                                         )}
-                                        <Button variant="secondary" icon="download" disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">Export</Button>
+                                        <Button variant="secondary" icon="download" onClick={handleExport} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">Export JSON</Button>
                                         <Button icon="replay" onClick={() => setShowRerunConfirm(true)} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">Re-run</Button>
                                     </>
                                 )}
