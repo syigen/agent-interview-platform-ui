@@ -1,6 +1,6 @@
 
 export class LLMService {
-    private baseUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/llm`;
+    private baseUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/ai`;
 
     /**
      * Generates evaluation criteria based on a template profile.
