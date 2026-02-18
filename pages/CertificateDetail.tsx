@@ -196,10 +196,14 @@ export const CertificateDetail: React.FC = () => {
                         <div className="space-y-4">
                             {runData.steps.reduce((acc: any[], step, index) => {
                                 if (step.gradingHistory && step.gradingHistory.length > 0) {
-                                    // Find the most recent interviewer question before this step
+                                    // Find the most recent interviewer question and agent answer before this step
                                     let question = null;
+                                    let answer = null;
                                     if (runData.steps) {
                                         for (let i = index - 1; i >= 0; i--) {
+                                            if (!answer && runData.steps[i].role === 'agent') {
+                                                answer = runData.steps[i];
+                                            }
                                             if (runData.steps[i].role === 'interviewer') {
                                                 question = runData.steps[i];
                                                 break;
@@ -210,11 +214,12 @@ export const CertificateDetail: React.FC = () => {
                                     acc.push({
                                         step,
                                         question,
+                                        answer,
                                         number: acc.length + 1
                                     });
                                 }
                                 return acc;
-                            }, []).map(({ step, question, number }: any) => (
+                            }, []).map(({ step, question, answer, number }: any) => (
                                 <div key={step.id} className="bg-[#1a1d24] border border-surface-border rounded-xl p-6 hover:border-surface-border/80 transition-colors">
                                     <div className="flex items-start justify-between gap-4 mb-6">
                                         <div className="flex items-center gap-3">
@@ -237,9 +242,19 @@ export const CertificateDetail: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            <div className="bg-[#11141a] rounded-lg p-4 border border-surface-border/50">
-                                                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-bold">Agent Answer</div>
-                                                <div className="text-sm text-slate-300 leading-relaxed font-mono whitespace-pre-wrap">{step.content}</div>
+                                            {answer && (
+                                                <div className="bg-[#11141a] rounded-lg p-4 border border-surface-border/50">
+                                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-bold">Agent Answer</div>
+                                                    <div className="text-sm text-slate-300 leading-relaxed font-mono whitespace-pre-wrap">{answer.content}</div>
+                                                </div>
+                                            )}
+
+                                            <div className="bg-[#11141a] rounded-lg p-4 border border-emerald-500/20">
+                                                <div className="text-[10px] text-emerald-400 uppercase tracking-wider mb-2 font-bold flex items-center gap-1.5">
+                                                    <span className="material-symbols-outlined text-[14px]">psychology</span>
+                                                    AI Evaluation
+                                                </div>
+                                                <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{step.content}</div>
                                             </div>
                                         </div>
 
