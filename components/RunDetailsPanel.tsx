@@ -219,6 +219,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
     // History expansion state
     const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(new Set());
     const [addingReviewForStep, setAddingReviewForStep] = useState<string | null>(null);
+    const [isGeneratingCertificate, setIsGeneratingCertificate] = useState(false);
 
     const toggleHistory = (stepId: string) => {
         setExpandedHistoryIds(prev => {
@@ -506,6 +507,22 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error('Export failed', err);
+        }
+    };
+
+    const handleGenerateCertificate = async () => {
+        if (!run) return;
+        setIsGeneratingCertificate(true);
+        try {
+            const cert = await runService.issueCertificate(run.id);
+            // Navigate to certificate view
+            onClose();
+            navigate(`/certificate/${cert.id}`);
+        } catch (err) {
+            console.error("Failed to issue certificate", err);
+            // Could add toast notification here
+        } finally {
+            setIsGeneratingCertificate(false);
         }
     };
 
@@ -853,8 +870,10 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                         Editing Scores...
                                     </span>
                                 ) : (
-                                    <span className="text-xs text-slate-500">
-                                        {run.status === 'running' ? 'Live Streaming...' : 'Read-only view'}
+                                    <span className="text-xs text-slate-500 flex items-center gap-2">
+                                        {run.status === 'running' ? 'Live Streaming...' :
+                                            run.isCertified ? <><span className="material-symbols-outlined text-[14px] text-emerald-500">lock</span> Certified — Read-only view</> :
+                                                'Read-only view'}
                                     </span>
                                 )}
                             </div>
@@ -867,16 +886,24 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                     </>
                                 ) : (
                                     <>
-                                        <Button variant="secondary" icon="fact_check" onClick={() => setIsGradingMode(true)} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">
-                                            Human Review
-                                        </Button>
-                                        {run.status === 'pass' && (
-                                            <Button variant="secondary" icon="verified" onClick={() => navigate(`/certificate/${run.id}`)} disabled={isRunningFullRegrade} className="whitespace-nowrap">
-                                                Certificate
+                                        {run.isCertified && run.certificate ? (
+                                            <Button variant="secondary" icon="verified" onClick={() => navigate(`/certificate/${run.certificate!.id}`)} className="whitespace-nowrap">
+                                                View Certificate
                                             </Button>
+                                        ) : (
+                                            <>
+                                                <Button variant="secondary" icon="fact_check" onClick={() => setIsGradingMode(true)} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">
+                                                    Human Review
+                                                </Button>
+                                                {run.status === 'pass' && (
+                                                    <Button variant="secondary" icon="verified" onClick={handleGenerateCertificate} disabled={isRunningFullRegrade || isGeneratingCertificate} className="whitespace-nowrap">
+                                                        {isGeneratingCertificate ? 'Issuing...' : 'Generate Certificate'}
+                                                    </Button>
+                                                )}
+                                                <Button icon="replay" onClick={() => setShowRerunConfirm(true)} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">Re-run</Button>
+                                            </>
                                         )}
                                         <Button variant="secondary" icon="download" onClick={handleExport} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">Export JSON</Button>
-                                        <Button icon="replay" onClick={() => setShowRerunConfirm(true)} disabled={isRunningFullRegrade || run.status === 'running'} className="whitespace-nowrap">Re-run</Button>
                                     </>
                                 )}
                             </div>

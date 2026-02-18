@@ -27,7 +27,7 @@ export const Dashboard: React.FC = () => {
         const unreadRequests = accessRequests.filter(r => r.status === 'unread').length;
 
         // Use base of 843 to match UI design requirements, plus real dynamic certificates
-        const totalCertificates = 0 + passedRunsCount;
+        const totalCertificates = runs.filter(r => r.isCertified).length;
 
         return [
             {

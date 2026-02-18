@@ -41,6 +41,12 @@ export interface Run {
     score?: number;
     steps?: ChatStep[];
     totalSteps?: number;
+    templateName?: string;
+    templateDifficulty?: string;
+    templateSkills?: string; // JSON array string
+    templateDescription?: string;
+    certificate?: Certificate;
+    isCertified?: boolean;
 }
 
 export interface Criterion {
@@ -64,10 +70,15 @@ export interface Template {
 
 export interface Certificate {
     id: string;
-    agent: string;
-    date: string;
+    runId: string;
+    agentId: string;
+    agentName: string;
+    templateName?: string;
     score: number;
-    template: string;
+    status: 'active' | 'revoked';
+    issuedAt: string;
+    issuedBy?: string;
+    dataHash: string;
 }
 
 export interface AccessRequest {

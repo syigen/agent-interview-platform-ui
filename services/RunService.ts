@@ -75,6 +75,25 @@ class RunService {
         }
         return response.json();
     }
+
+    async issueCertificate(runId: string): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/${runId}/certificate`, {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to issue certificate');
+        }
+        return response.json();
+    }
+
+    async getCertificate(runId: string): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/${runId}/certificate`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch certificate');
+        }
+        return response.json();
+    }
 }
 
 export const runService = new RunService();

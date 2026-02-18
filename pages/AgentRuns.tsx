@@ -57,6 +57,10 @@ export const AgentRuns: React.FC = () => {
                 agentName: agentName,
                 status: 'running',
                 score: 0,
+                templateName: selectedTemplate.name,
+                templateDifficulty: selectedTemplate.difficulty,
+                templateSkills: JSON.stringify(selectedTemplate.skills),
+                templateDescription: selectedTemplate.description || '',
                 // We typically wouldn't send steps here, but the type allows it.
                 // The backend creates the ID.
             })).unwrap(); // unwrap to get the result payload or throw error
@@ -326,8 +330,13 @@ export const AgentRuns: React.FC = () => {
                                                 {run.timestamp}
                                             </td>
                                             <td className="px-6 py-4">
-                                                {run.status === 'pass' && <Badge type="pass" icon="check_circle">Certified</Badge>}
-                                                {run.status === 'fail' && <Badge type="fail" icon="cancel">Failed</Badge>}
+                                                {run.isCertified ? (
+                                                    <Badge type="pass" icon="verified">Certified</Badge>
+                                                ) : run.status === 'pass' ? (
+                                                    <Badge type="pass" icon="check_circle">Passed</Badge>
+                                                ) : run.status === 'fail' ? (
+                                                    <Badge type="fail" icon="cancel">Failed</Badge>
+                                                ) : null}
                                                 {run.status === 'running' && <Badge type="progress" icon="sync">Running</Badge>}
                                                 {run.status === 'in_progress' && <Badge type="neutral" icon="pending">Pending</Badge>}
                                             </td>
@@ -350,13 +359,13 @@ export const AgentRuns: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end items-center gap-1">
-                                                    {run.status === 'pass' && (
+                                                    {run.isCertified && run.certificate && (
                                                         <button
                                                             className="text-emerald-500 hover:text-emerald-400 transition-colors p-2 rounded hover:bg-emerald-500/10"
                                                             title="View Certificate"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                navigate(`/certificate/${run.id}`);
+                                                                navigate(`/certificate/${run.certificate!.id}`);
                                                             }}
                                                         >
                                                             <span className="material-symbols-outlined text-[20px]">verified</span>
@@ -401,8 +410,13 @@ export const AgentRuns: React.FC = () => {
                                             <span className="font-bold text-white text-sm">{run.agentName}</span>
                                             <span className="text-[10px] text-slate-500 font-mono mt-1">{run.id} • {run.agentId}</span>
                                         </div>
-                                        {run.status === 'pass' && <Badge type="pass" icon="check_circle">Certified</Badge>}
-                                        {run.status === 'fail' && <Badge type="fail" icon="cancel">Failed</Badge>}
+                                        {run.isCertified ? (
+                                            <Badge type="pass" icon="verified">Certified</Badge>
+                                        ) : run.status === 'pass' ? (
+                                            <Badge type="pass" icon="check_circle">Passed</Badge>
+                                        ) : run.status === 'fail' ? (
+                                            <Badge type="fail" icon="cancel">Failed</Badge>
+                                        ) : null}
                                         {run.status === 'running' && <Badge type="progress" icon="sync">Run</Badge>}
                                         {run.status === 'in_progress' && <Badge type="neutral" icon="pending">Pending</Badge>}
                                     </div>
@@ -416,11 +430,11 @@ export const AgentRuns: React.FC = () => {
                                         </div>
                                         <div className="text-xs text-slate-500 font-mono self-end mb-1">{run.timestamp}</div>
                                         <div className="flex gap-2">
-                                            {run.status === 'pass' && (
+                                            {run.isCertified && run.certificate && (
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        navigate(`/certificate/${run.id}`);
+                                                        navigate(`/certificate/${run.certificate!.id}`);
                                                     }}
                                                     className="size-8 flex items-center justify-center rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
                                                 >

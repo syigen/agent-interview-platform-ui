@@ -1,38 +1,39 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Card } from '../components/ui/Common';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
-import { Run } from '../types';
+import { Run, Certificate } from '../types';
 import { useAppSelector } from '../store/hooks';
 import { RequestsInbox } from '../components/RequestsInbox';
-import { certificates as staticCertificates } from '../data/certificates';
+import { certificateService } from '../services/CertificateService';
 
 export const CertificateList: React.FC = () => {
     const navigate = useNavigate();
     const requests = useAppSelector((state) => state.accessRequests.items);
     const runs = useAppSelector((state) => state.runs.items);
     const unreadCount = requests.filter(r => r.status === 'unread').length;
-    
+
     const [viewingLog, setViewingLog] = useState<Run | null>(null);
     const [showGuide, setShowGuide] = useState(false);
     const [showInbox, setShowInbox] = useState(false);
-    
-    // Merge static certificates with passed runs
-    const allCertificates = useMemo(() => {
-        const dynamicCertificates = runs
-            .filter(r => r.status === 'pass')
-            .map(r => ({
-                id: r.id,
-                agent: r.agentName,
-                date: r.timestamp === 'Just now' ? new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : r.timestamp,
-                score: r.score || 0,
-                template: 'Evaluation Run', // Default name for runs converted to certs
-                isDynamic: true
-            }));
-        
-        return [...dynamicCertificates, ...staticCertificates];
-    }, [runs]);
+
+    const [certificates, setCertificates] = useState<Certificate[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const loadCertificates = async () => {
+            try {
+                const data = await certificateService.getCertificates();
+                setCertificates(data);
+            } catch (err) {
+                console.error("Failed to load certificates", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadCertificates();
+    }, []);
 
     const getScoreTheme = (score: number) => {
         if (score >= 90) return {
@@ -86,7 +87,7 @@ export const CertificateList: React.FC = () => {
                                 <span className="material-symbols-outlined">close</span>
                             </button>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex gap-4">
                                 <div className="size-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">A+</div>
@@ -130,37 +131,37 @@ export const CertificateList: React.FC = () => {
                         <p className="text-slate-400">Registry of all certified agents and their validation scores.</p>
                     </div>
                     <div className="flex gap-3">
-                         <Button 
-                            variant={unreadCount > 0 ? "primary" : "outline"} 
-                            icon="inbox" 
+                        <Button
+                            variant={unreadCount > 0 ? "primary" : "outline"}
+                            icon="inbox"
                             onClick={() => setShowInbox(true)}
                             className="relative"
-                         >
+                        >
                             Access Requests
                             {unreadCount > 0 && (
                                 <span className="absolute -top-1 -right-1 size-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-background-dark animate-bounce">
                                     {unreadCount}
                                 </span>
                             )}
-                         </Button>
-                         <Button variant="outline" icon="info" onClick={() => setShowGuide(true)}>Score Guide</Button>
+                        </Button>
+                        <Button variant="outline" icon="info" onClick={() => setShowGuide(true)}>Score Guide</Button>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {allCertificates.map((cert) => {
+                    {certificates.map((cert) => {
                         const theme = getScoreTheme(cert.score);
                         return (
-                            <Card 
-                                key={cert.id} 
+                            <Card
+                                key={cert.id}
                                 className={`p-6 group cursor-pointer transition-all relative overflow-hidden flex flex-col ${theme.border} ${theme.hoverBorder} ${theme.shadow}`}
                             >
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
                                     <span className="material-symbols-outlined text-[80px]">verified_user</span>
                                 </div>
-                                
-                                <div 
-                                    onClick={() => navigate(`/certificate/${cert.id}`)}
+
+                                <div
+                                    onClick={() => navigate(`/certificate/${cert.id}`)} // This might need to change if route expects ID or something
                                     className="relative z-10 flex flex-col h-full flex-1"
                                 >
                                     <div className="flex items-start justify-between mb-4">
@@ -173,39 +174,29 @@ export const CertificateList: React.FC = () => {
                                     </div>
 
                                     <div className="mb-4">
-                                        <h3 className="text-lg font-bold text-white mb-1 group-hover:text-primary transition-colors">{cert.agent}</h3>
+                                        <h3 className="text-lg font-bold text-white mb-1 group-hover:text-primary transition-colors">{cert.agentName}</h3>
                                         <p className="text-xs text-slate-500 font-mono">{cert.id}</p>
                                     </div>
 
                                     <div className="mt-auto space-y-3 pt-4 border-t border-surface-border">
                                         <div className="flex justify-between text-xs">
                                             <span className="text-slate-500">Template</span>
-                                            <span className="text-slate-300">{cert.template}</span>
+                                            <span className="text-slate-300">{cert.templateName || 'Standard Evaluation'}</span>
                                         </div>
                                         <div className="flex justify-between text-xs">
                                             <span className="text-slate-500">Issued</span>
-                                            <span className="text-slate-300">{cert.date}</span>
+                                            <span className="text-slate-300">{new Date(cert.issuedAt).toLocaleDateString()}</span>
                                         </div>
-                                        
-                                        <Button 
-                                            variant="secondary" 
-                                            className="w-full mt-2 text-xs group-hover:bg-white group-hover:text-background-dark group-hover:border-white transition-colors" 
+
+                                        <Button
+                                            variant="secondary"
+                                            className="w-full mt-2 text-xs group-hover:bg-white group-hover:text-background-dark group-hover:border-white transition-colors"
                                             icon="description"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                const relatedRun = runs.find(r => r.id === cert.id);
+                                                const relatedRun = runs.find(r => r.id === cert.runId);
                                                 if (relatedRun) {
                                                     setViewingLog(relatedRun);
-                                                } else {
-                                                    // Fallback for static certificates
-                                                    setViewingLog({
-                                                        id: cert.id,
-                                                        agentId: 'AGT-' + cert.id.split('-')[1],
-                                                        agentName: cert.agent,
-                                                        timestamp: cert.date,
-                                                        status: 'pass',
-                                                        score: cert.score
-                                                    });
                                                 }
                                             }}
                                         >
@@ -216,16 +207,16 @@ export const CertificateList: React.FC = () => {
                             </Card>
                         );
                     })}
-                    
-                     <div 
+
+                    <div
                         onClick={() => navigate('/runs')}
                         className="rounded-xl border border-dashed border-surface-border bg-surface-dark/30 flex flex-col items-center justify-center gap-4 p-6 cursor-pointer hover:bg-surface-dark hover:border-primary/50 transition-all group min-h-[260px]"
-                     >
-                         <div className="size-12 rounded-full bg-surface-dark border border-surface-border flex items-center justify-center text-slate-400 group-hover:text-primary group-hover:border-primary transition-colors">
-                             <span className="material-symbols-outlined text-2xl">add</span>
-                         </div>
-                         <p className="text-sm font-medium text-slate-400 group-hover:text-white">Issue New Certificate</p>
-                     </div>
+                    >
+                        <div className="size-12 rounded-full bg-surface-dark border border-surface-border flex items-center justify-center text-slate-400 group-hover:text-primary group-hover:border-primary transition-colors">
+                            <span className="material-symbols-outlined text-2xl">add</span>
+                        </div>
+                        <p className="text-sm font-medium text-slate-400 group-hover:text-white">Issue New Certificate</p>
+                    </div>
                 </div>
             </div>
         </Layout>
