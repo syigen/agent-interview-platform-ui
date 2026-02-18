@@ -19,6 +19,9 @@ import { CertificateDetail } from './pages/CertificateDetail';
 import { LoginPage } from './pages/LoginPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import AgentInterviews from './pages/AgentInterviews';
+import PublicAgentProfile from './pages/PublicAgentProfile';
+import PublicCertificate from './pages/PublicCertificate';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const AppContent: React.FC = () => {
@@ -45,17 +48,21 @@ const AppContent: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/interview" element={<Interview />} /> {/* Assuming interview might be public or handle its own auth/access? Keeping as is based on context, or should it be protected? Safest to protect unless it's the candidate view. Let's protect it for now as it seems to be the interviewer view. */}
+      <Route path="/public/agents/:id" element={<PublicAgentProfile />} />
+      <Route path="/public/certificates/:id" element={<PublicCertificate />} />
+      <Route path="/interview" element={<Interview />} />
 
       {/* Protected Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/templates/*" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
       <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
       <Route path="/agents/:id" element={<ProtectedRoute><AgentProfileDetail /></ProtectedRoute>} />
+      <Route path="/agent-interviews" element={<ProtectedRoute><AgentInterviews /></ProtectedRoute>} />
       <Route path="/runs" element={<ProtectedRoute><AgentRuns /></ProtectedRoute>} />
       <Route path="/session" element={<ProtectedRoute><Console /></ProtectedRoute>} />
       <Route path="/certificates" element={<ProtectedRoute><CertificateList /></ProtectedRoute>} />
       <Route path="/certificate/:id" element={<ProtectedRoute><CertificateDetail /></ProtectedRoute>} />
+      <Route path="/session" element={<ProtectedRoute><Console /></ProtectedRoute>} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

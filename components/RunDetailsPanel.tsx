@@ -18,6 +18,10 @@ const dummyLogs: Record<string, ChatStep[]> = {
 interface RunDetailsPanelProps {
     run: Run | null;
     onClose: () => void;
+    /** When true, automatically starts the AI grading loop as soon as steps are loaded */
+    autoEvaluate?: boolean;
+    /** Called after autoEvaluate loop completes (success or cancelled) */
+    onEvaluationComplete?: () => void;
 }
 
 interface RerunError {
@@ -200,7 +204,7 @@ const GradingForm: React.FC<GradingFormProps> = ({ currentScore, onSubmit, onAIR
     );
 }
 
-export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }) => {
+export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose, autoEvaluate, onEvaluationComplete }) => {
     const navigate = useNavigate();
     const [localLogs, setLocalLogs] = useState<ChatStep[]>([]);
     const [originalLogs, setOriginalLogs] = useState<ChatStep[] | null>(null);
@@ -255,6 +259,68 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
             }
         }
     }, [run]);
+
+    // Auto-trigger evaluation loop when autoEvaluate is set
+    const autoEvaluateStarted = useRef(false);
+    useEffect(() => {
+        if (!autoEvaluate || localLogs.length === 0 || autoEvaluateStarted.current) return;
+        autoEvaluateStarted.current = true;
+
+        // Find all agent steps that follow an interviewer step (Q&A pairs)
+        const agentStepsToGrade = localLogs
+            .map((step, index) => ({ step, index }))
+            .filter(({ step, index }) =>
+                step.role === 'agent' && index > 0 && localLogs[index - 1].role === 'interviewer'
+            );
+
+        if (agentStepsToGrade.length === 0) {
+            onEvaluationComplete?.();
+            return;
+        }
+
+        setOriginalLogs(JSON.parse(JSON.stringify(localLogs)));
+        shouldContinueRef.current = true;
+        setIsRunningFullRegrade(true);
+        setRegradeProgress(0);
+        setRerunError(null);
+
+        (async () => {
+            for (let i = 0; i < agentStepsToGrade.length; i++) {
+                if (!shouldContinueRef.current) break;
+                const { step, index } = agentStepsToGrade[i];
+                setCurrentRegradeIndex(index);
+                setRegradeProgress(Math.round((i / agentStepsToGrade.length) * 100));
+
+                const el = document.getElementById(`step-${step.id}`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    const question = localLogs[index - 1].content;
+                    const answer = step.content;
+                    setRegradingStepId(step.id);
+                    const result = await llmService.reEvaluateResponse(question, answer);
+                    setRegradingStepId(null);
+                    updateStepGrade(step.id, 'ai', result.score, result.reasoning);
+                    setRegradeProgress(Math.round(((i + 1) / agentStepsToGrade.length) * 100));
+                } catch {
+                    setRegradingStepId(null);
+                    setRerunError({
+                        stepId: step.id,
+                        indexInQueue: i,
+                        message: "Evaluation interrupted: Unable to grade this response."
+                    });
+                    setIsRunningFullRegrade(false);
+                    return;
+                }
+            }
+            setCurrentRegradeIndex(-1);
+            setIsRunningFullRegrade(false);
+            setRegradeProgress(100);
+            onEvaluationComplete?.();
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoEvaluate, localLogs.length]);
 
     if (!run) return null;
 
@@ -837,6 +903,26 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                                 'bg-[#1a2332] border-surface-border text-white'}`}>
                                         {step.content}
                                     </div>
+
+                                    {/* Inline score badge for agent answers during/after evaluation */}
+                                    {step.role === 'agent' && (
+                                        isProcessing ? (
+                                            <div className="flex items-center gap-2 mt-2 text-xs text-indigo-400 animate-pulse">
+                                                <span className="material-symbols-outlined text-[14px]">smart_toy</span>
+                                                Evaluating answer…
+                                            </div>
+                                        ) : typeof step.score === 'number' ? (
+                                            <div className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full border text-xs font-semibold animate-fade-in-up
+                                                ${step.score >= 70
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                    : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                                <span className="material-symbols-outlined text-[13px]">
+                                                    {step.score >= 70 ? 'check_circle' : 'cancel'}
+                                                </span>
+                                                Score: {step.score}%
+                                            </div>
+                                        ) : null
+                                    )}
                                 </div>
                             </div>
                         );
