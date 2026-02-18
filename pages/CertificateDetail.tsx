@@ -248,14 +248,6 @@ export const CertificateDetail: React.FC = () => {
                                                     <div className="text-sm text-slate-300 leading-relaxed font-mono whitespace-pre-wrap">{answer.content}</div>
                                                 </div>
                                             )}
-
-                                            <div className="bg-[#11141a] rounded-lg p-4 border border-emerald-500/20">
-                                                <div className="text-[10px] text-emerald-400 uppercase tracking-wider mb-2 font-bold flex items-center gap-1.5">
-                                                    <span className="material-symbols-outlined text-[14px]">psychology</span>
-                                                    AI Evaluation
-                                                </div>
-                                                <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{step.content}</div>
-                                            </div>
                                         </div>
 
                                         <div>
@@ -284,7 +276,7 @@ export const CertificateDetail: React.FC = () => {
                                                                 {grade.score}/100
                                                             </div>
                                                         </div>
-                                                        <div className="text-slate-400 leading-relaxed pl-1 border-l-2 border-surface-border">
+                                                        <div className="text-slate-400 leading-relaxed pl-1 border-l-2 border-surface-border whitespace-pre-wrap">
                                                             {grade.reasoning}
                                                         </div>
                                                         {grade.createdAt && (

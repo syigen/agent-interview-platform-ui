@@ -106,7 +106,7 @@ const GradingHistoryItem: React.FC<GradingHistoryItemProps> = ({ entry, isElecte
                 <div className="font-mono text-xl font-bold tracking-tight text-white/90">
                     {entry.score}
                 </div>
-            </div>      <p className="text-sm text-slate-300 mb-3 pl-9">{entry.reasoning}</p>
+            </div>      <p className="text-sm text-slate-300 mb-3 pl-9 whitespace-pre-wrap">{entry.reasoning}</p>
 
             {!isElected && !readOnly && (
                 <div className="pl-9">
@@ -831,7 +831,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                         </span>
                                         <span className="text-[10px] font-mono text-slate-600">{step.timestamp}</span>
                                     </div>
-                                    <div className={`p-4 rounded-lg text-sm leading-relaxed border relative
+                                    <div className={`p-4 rounded-lg text-sm leading-relaxed border relative whitespace-pre-wrap
                                         ${step.role === 'agent' ? 'bg-primary/5 border-primary/20 text-slate-200' :
                                             step.role === 'system' ? 'bg-surface-dark border-surface-border text-slate-400 font-mono text-xs' :
                                                 'bg-[#1a2332] border-surface-border text-white'}`}>
