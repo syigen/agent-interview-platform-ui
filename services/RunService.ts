@@ -61,6 +61,20 @@ class RunService {
         }
         return response.json();
     }
+    async updateStep(runId: string, stepId: string, stepData: any): Promise<any> {
+        // Ensure gradingHistory is included if present, as it might be needed for the backend to update correctly
+        const response = await fetch(`${API_BASE_URL}/${runId}/steps/${stepId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(stepData),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to update step');
+        }
+        return response.json();
+    }
 }
 
 export const runService = new RunService();

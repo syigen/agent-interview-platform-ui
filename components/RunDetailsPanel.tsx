@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Input, Textarea, Badge } from './ui/Common';
 import { Run, ChatStep, GradeEntry } from '../types';
 import { llmService } from '../services/LLMService';
+import { runService } from '../services/RunService';
 
 // Mock logs data for demonstration
 const dummyLogs: Record<string, ChatStep[]> = {
@@ -52,11 +53,20 @@ interface GradingHistoryItemProps {
     entry: GradeEntry;
     isElected: boolean;
     onElect: () => void;
+    readOnly?: boolean;
 }
 
-const GradingHistoryItem: React.FC<GradingHistoryItemProps> = ({ entry, isElected, onElect }) => {
+const GradingHistoryItem: React.FC<GradingHistoryItemProps> = ({ entry, isElected, onElect, readOnly }) => {
+    // Determine container classes based on state
+    const containerClasses = [
+        "relative flex flex-col p-4 rounded-xl border transition-all duration-300 ml-0",
+        isElected
+            ? "bg-[#1a2332] border-primary shadow-lg opacity-100 z-10 scale-[1.01]"
+            : "bg-[#111722] border-surface-border opacity-50 hover:opacity-100 grayscale hover:grayscale-0" // "Colored out" (dimmed & grayscale) for non-elected
+    ].join(" ");
+
     return (
-        <div className={`relative flex flex-col p-4 rounded-xl border transition-all duration-300 ml-0 ${isElected ? 'bg-[#1a2332] border-primary shadow-lg opacity-100 z-10' : 'bg-[#111722] border-surface-border opacity-60 hover:opacity-100 grayscale hover:grayscale-0'}`}>
+        <div className={containerClasses}>
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-3">
                     <div className={`size-6 rounded-full flex items-center justify-center border ${isElected ? 'bg-primary border-primary text-white' : 'bg-surface-dark border-slate-600 text-slate-500'}`}>
@@ -65,18 +75,40 @@ const GradingHistoryItem: React.FC<GradingHistoryItemProps> = ({ entry, isElecte
                         </span>
                     </div>
                     <div className="flex flex-col">
-                        <span className={`text-xs font-bold uppercase tracking-wider ${isElected ? 'text-primary' : 'text-slate-500'}`}>
-                            {entry.source === 'ai' ? 'Automated Evaluation' : 'Human Review'}
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            {entry.source === 'human' ? 'Human Review' : 'AI Graded'}
                         </span>
-                        <span className="text-[10px] text-slate-500 font-mono">{entry.timestamp}</span>
+                        <span className="text-[10px] text-slate-500 font-mono opacity-60">
+                            Created: {new Date(entry.timestamp).toLocaleString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}
+                            {isElected && entry.electedAt && (
+                                <>
+                                    <span className="mx-1">•</span>
+                                    <span className="text-emerald-400">
+                                        Elected: {new Date(entry.electedAt).toLocaleString(undefined, {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </span>
+                                </>
+                            )}
+                        </span>
                     </div>
                 </div>
-                <div className={`text-xl font-black ${entry.score >= 70 ? 'text-white' : 'text-red-400'}`}>{entry.score}</div>
-            </div>
+                <div className="font-mono text-xl font-bold tracking-tight text-white/90">
+                    {entry.score}
+                </div>
+            </div>      <p className="text-sm text-slate-300 mb-3 pl-9">{entry.reasoning}</p>
 
-            <p className="text-sm text-slate-300 mb-3 pl-9">{entry.reasoning}</p>
-
-            {!isElected && (
+            {!isElected && !readOnly && (
                 <div className="pl-9">
                     <Button
                         variant="ghost"
@@ -184,6 +216,22 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
     const [regradeProgress, setRegradeProgress] = useState(0);
     const [currentRegradeIndex, setCurrentRegradeIndex] = useState(-1);
 
+    // History expansion state
+    const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(new Set());
+    const [addingReviewForStep, setAddingReviewForStep] = useState<string | null>(null);
+
+    const toggleHistory = (stepId: string) => {
+        setExpandedHistoryIds(prev => {
+            const next = new Set(prev);
+            if (next.has(stepId)) {
+                next.delete(stepId);
+            } else {
+                next.add(stepId);
+            }
+            return next;
+        });
+    };
+
     // Track if we should continue running (for error handling cancellation)
     const shouldContinueRef = useRef(true);
 
@@ -233,7 +281,9 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
         ? Math.round(scoredSteps.reduce((acc, curr) => acc + (curr.score || 0), 0) / scoredSteps.length)
         : 0;
 
-    const updateStepGrade = (stepId: string, source: 'human' | 'ai', newScore: number, note?: string) => {
+    const updateStepGrade = async (stepId: string, source: 'human' | 'ai', newScore: number, note?: string) => {
+        let updatedStep: ChatStep | null = null;
+
         setLocalLogs(prev => prev.map(step => {
             if (step.id !== stepId) return step;
 
@@ -241,7 +291,7 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                 source,
                 score: newScore,
                 reasoning: note,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toISOString()
             };
 
             // Preserve existing state if history is empty
@@ -251,35 +301,96 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                     source: step.isHumanGraded ? 'human' : 'ai',
                     score: step.score || 0,
                     reasoning: step.humanNote || step.content,
-                    timestamp: step.timestamp
+                    timestamp: step.timestamp // This is already a datetime string from DB/API
                 });
             }
-            history.push(newEntry);
+            // Reset isSelected for all, then set for new entry
+            const updatedHistory = history.map(h => ({ ...h, isSelected: false }));
+            newEntry.isSelected = true;
+            newEntry.electedAt = newEntry.timestamp; // Inherit creation time as election time for new entries
+            updatedHistory.push(newEntry);
 
-            return {
+            updatedStep = {
                 ...step,
                 score: newScore,
                 isHumanGraded: source === 'human',
                 humanNote: source === 'human' ? note : undefined,
                 content: source === 'ai' && note ? note : step.content,
-                gradingHistory: history
+                gradingHistory: updatedHistory
             };
+
+            return updatedStep;
         }));
+
+        // Persist to backend - Only sending history and content (for AI text updates)
+        if (updatedStep && run) {
+            try {
+                // @ts-ignore
+                await runService.updateStep(run.id, stepId, {
+                    gradingHistory: updatedStep.gradingHistory,
+                    content: updatedStep.content
+                });
+            } catch (err) {
+                console.error("Failed to persist step update", err);
+                // Optionally revert local state or show notification
+            }
+        }
     };
 
-    const handleElectEntry = (stepId: string, entry: GradeEntry) => {
+    const handleElectEntry = async (stepId: string, entryIndex: number) => {
+        let updatedStep: ChatStep | null = null;
+
         setLocalLogs(prev => prev.map(step => {
             if (step.id !== stepId) return step;
-            return {
+            if (!step.gradingHistory) return step;
+
+            const selectedEntry = step.gradingHistory[entryIndex];
+            if (!selectedEntry) return step;
+
+            // Update history: Select this one, deselect others, set electedAt
+            const now = new Date().toISOString();
+            const updatedHistory = step.gradingHistory.map((h, idx) => ({
+                ...h,
+                isSelected: idx === entryIndex,
+                electedAt: idx === entryIndex ? (h.electedAt || now) : h.electedAt // Keep existing if already set? Or update? User said "elected time", implying *when* it was elected. Let's update it to now if it's being re-elected, or specifically if it becomes the SELECTED one.
+                // Actually, if I re-elect an old one, does the time change? 
+                // "It should have elected time if its elected". 
+                // Let's set it to NOW whenever it becomes isSelected=true.
+            }));
+
+            // Correction: If we want to track when it was elected, we should update it. 
+            // However, modifying the history map above is slightly complex logic for "update only if changing to true".
+            // Let's simplify: Just set electedAt = now for the selected one.
+            const finalHistory = step.gradingHistory.map((h, idx) => {
+                if (idx === entryIndex) {
+                    return { ...h, isSelected: true, electedAt: now };
+                }
+                return { ...h, isSelected: false };
+            });
+
+            updatedStep = {
                 ...step,
-                score: entry.score,
-                isHumanGraded: entry.source === 'human',
-                humanNote: entry.source === 'human' ? entry.reasoning : undefined,
-                content: entry.source === 'ai' ? (entry.reasoning || step.content) : step.content,
-                // gradingHistory remains the same
-                gradingHistory: step.gradingHistory
+                score: selectedEntry.score,
+                isHumanGraded: selectedEntry.source === 'human',
+                humanNote: selectedEntry.source === 'human' ? selectedEntry.reasoning : undefined,
+                content: selectedEntry.source === 'ai' ? (selectedEntry.reasoning || step.content) : step.content,
+                gradingHistory: finalHistory
             };
+
+            return updatedStep;
         }));
+
+        if (updatedStep && run) {
+            try {
+                // @ts-ignore
+                await runService.updateStep(run.id, stepId, {
+                    gradingHistory: updatedStep.gradingHistory,
+                    content: updatedStep.content
+                });
+            } catch (err) {
+                console.error("Failed to persist election", err);
+            }
+        }
     };
 
     const handleAIReGrade = async (stepId: string, stepIndex: number): Promise<void> => {
@@ -486,36 +597,96 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                                 {/* Timeline Track */}
                                                 <div className="absolute left-[27px] top-6 bottom-6 w-0.5 bg-surface-border -z-10"></div>
 
-                                                {history.map((entry, hIdx) => {
-                                                    const isElected = entry.score === step.score &&
-                                                        (entry.source === 'human' ? entry.reasoning === step.humanNote : (entry.reasoning === step.content || entry.reasoning === step.humanNote));
+                                                {(() => {
+                                                    // Identify the elected entry
+                                                    let selectedIndex = history.findIndex(entry =>
+                                                        entry.isSelected ?? (entry.score === step.score &&
+                                                            entry.source === (step.isHumanGraded ? 'human' : 'ai') &&
+                                                            entry.reasoning === (step.isHumanGraded ? step.humanNote : step.content))
+                                                    );
+
+                                                    // Default to last if none explicitly matched (shouldn't happen with correct data)
+                                                    if (selectedIndex === -1) selectedIndex = history.length - 1;
+
+                                                    const selectedEntry = history[selectedIndex];
+
+                                                    // Get others and reverse them (latest first)
+                                                    const otherEntries = history
+                                                        .map((entry, index) => ({ entry, originalIndex: index }))
+                                                        .filter(item => item.originalIndex !== selectedIndex)
+                                                        .reverse();
 
                                                     return (
-                                                        <GradingHistoryItem
-                                                            key={hIdx}
-                                                            entry={entry}
-                                                            isElected={isElected}
-                                                            onElect={() => handleElectEntry(step.id, entry)}
-                                                        />
-                                                    );
-                                                })}
+                                                        <>
+                                                            {/* 1. Elected Entry (Top) */}
+                                                            <GradingHistoryItem
+                                                                key={`selected-${selectedIndex}`}
+                                                                entry={selectedEntry}
+                                                                isElected={true}
+                                                                onElect={() => { }} // Already elected
+                                                            />
 
-                                                <GradingForm
-                                                    currentScore={step.score || 0}
-                                                    onSubmit={(score, note) => updateStepGrade(step.id, 'human', score, note)}
-                                                    onAIReGrade={() => handleAIReGrade(step.id, idx)}
-                                                    isProcessing={isProcessing}
-                                                />
+                                                            {/* 2. Add Button & Form Panel */}
+                                                            <div className="flex flex-col items-center gap-4 my-2">
+                                                                {!addingReviewForStep && (
+                                                                    <div className="w-full flex items-center gap-4">
+                                                                        <div className="h-px bg-surface-border flex-1"></div>
+                                                                        <Button
+                                                                            variant="secondary"
+                                                                            className="rounded-full size-8 p-0 flex items-center justify-center border-dashed border-slate-500 text-slate-400 hover:text-white hover:border-white"
+                                                                            onClick={() => setAddingReviewForStep(step.id)}
+                                                                        >
+                                                                            <span className="material-symbols-outlined text-lg">add</span>
+                                                                        </Button>
+                                                                        <div className="h-px bg-surface-border flex-1"></div>
+                                                                    </div>
+                                                                )}
+
+                                                                {addingReviewForStep === step.id && (
+                                                                    <div className="w-full animate-fade-in-up">
+                                                                        <GradingForm
+                                                                            currentScore={step.score || 0}
+                                                                            onSubmit={(score, note) => {
+                                                                                updateStepGrade(step.id, 'human', score, note);
+                                                                                setAddingReviewForStep(null);
+                                                                            }}
+                                                                            onAIReGrade={async () => {
+                                                                                await handleAIReGrade(step.id, idx);
+                                                                                setAddingReviewForStep(null);
+                                                                            }}
+                                                                            isProcessing={isProcessing}
+                                                                        />
+                                                                        <div className="flex justify-center mt-2">
+                                                                            <Button variant="ghost" className="text-xs text-slate-500" onClick={() => setAddingReviewForStep(null)}>Cancel</Button>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* 3. Other Entries (Latest First) */}
+                                                            {otherEntries.map(({ entry, originalIndex }) => (
+                                                                <GradingHistoryItem
+                                                                    key={originalIndex}
+                                                                    entry={entry}
+                                                                    isElected={false}
+                                                                    onElect={() => handleElectEntry(step.id, originalIndex)}
+                                                                />
+                                                            ))}
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         ) : (
                                             // View Mode Pill
                                             <div className="flex flex-col items-center gap-2 z-10 max-w-lg w-full">
-                                                <div className={`
-                                                    flex items-center gap-3 px-4 py-1.5 rounded-full border shadow-lg relative transition-all duration-300
+                                                <div
+                                                    onClick={() => toggleHistory(step.id)}
+                                                    className={`
+                                                    flex items-center gap-3 px-4 py-1.5 rounded-full border shadow-lg relative transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95
                                                     ${isProcessing ? 'scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]' : ''}
                                                     ${(step.score || 0) >= 90 ? 'bg-[#062c1e] border-emerald-500/30 text-emerald-400' :
-                                                        (step.score || 0) >= 70 ? 'bg-[#2e1d05] border-yellow-500/30 text-yellow-400' :
-                                                            'bg-[#2c0b0e] border-red-500/30 text-red-400'}
+                                                            (step.score || 0) >= 70 ? 'bg-[#2e1d05] border-yellow-500/30 text-yellow-400' :
+                                                                'bg-[#2c0b0e] border-red-500/30 text-red-400'}
                                                  `}>
                                                     <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1">
                                                         {step.isHumanGraded ? (
@@ -526,15 +697,67 @@ export const RunDetailsPanel: React.FC<RunDetailsPanelProps> = ({ run, onClose }
                                                     </span>
                                                     <div className="w-px h-3 bg-current opacity-20"></div>
                                                     <span className="font-mono font-bold">{step.score}/100</span>
+                                                    <span className={`material-symbols-outlined text-[16px] transition-transform duration-300 ${expandedHistoryIds.has(step.id) ? 'rotate-180' : ''}`}>expand_more</span>
                                                 </div>
 
-                                                <div className="text-xs text-slate-500 max-w-xs text-center italic opacity-80 animate-fade-in-up">
-                                                    "{step.isHumanGraded ? step.humanNote : step.content}"
-                                                </div>
-
-                                                {step.gradingHistory && step.gradingHistory.length > 1 && (
+                                                {step.gradingHistory && step.gradingHistory.length > 1 && !expandedHistoryIds.has(step.id) && (
                                                     <div className="text-[10px] text-slate-600 bg-surface-dark px-2 py-0.5 rounded border border-surface-border mt-1">
                                                         {step.gradingHistory.length} revisions available
+                                                    </div>
+                                                )}
+
+                                                {/* Expanded History View */}
+                                                {expandedHistoryIds.has(step.id) && history.length > 0 && (
+                                                    <div className="flex flex-col gap-3 w-full animate-fade-in-up mt-4">
+                                                        <div className="text-[10px] font-bold uppercase text-slate-500 text-center mb-1">Evaluation Details</div>
+                                                        {(() => {
+                                                            // Identify the elected entry
+                                                            let selectedIndex = history.findIndex(entry =>
+                                                                entry.isSelected ?? (entry.score === step.score &&
+                                                                    entry.source === (step.isHumanGraded ? 'human' : 'ai') &&
+                                                                    entry.reasoning === (step.isHumanGraded ? step.humanNote : step.content))
+                                                            );
+
+                                                            // Default to last if none explicitly matched
+                                                            if (selectedIndex === -1) selectedIndex = history.length - 1;
+
+                                                            const selectedEntry = history[selectedIndex];
+
+                                                            // Get others and reverse them (latest first)
+                                                            const otherEntries = history
+                                                                .map((entry, index) => ({ entry, originalIndex: index }))
+                                                                .filter(item => item.originalIndex !== selectedIndex)
+                                                                .reverse();
+
+                                                            return (
+                                                                <>
+                                                                    {/* 1. Elected Entry (Top) */}
+                                                                    <GradingHistoryItem
+                                                                        key={`selected-${selectedIndex}`}
+                                                                        entry={selectedEntry}
+                                                                        isElected={true}
+                                                                        onElect={() => { }}
+                                                                        readOnly={true}
+                                                                    />
+
+                                                                    {/* 2. Divider for others */}
+                                                                    {otherEntries.length > 0 && (
+                                                                        <div className="w-full h-px bg-surface-border my-2 opacity-50"></div>
+                                                                    )}
+
+                                                                    {/* 3. Other Entries (Latest First) */}
+                                                                    {otherEntries.map(({ entry, originalIndex }) => (
+                                                                        <GradingHistoryItem
+                                                                            key={originalIndex}
+                                                                            entry={entry}
+                                                                            isElected={false}
+                                                                            onElect={() => { }}
+                                                                            readOnly={true}
+                                                                        />
+                                                                    ))}
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 )}
                                             </div>

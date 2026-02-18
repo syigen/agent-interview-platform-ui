@@ -14,6 +14,8 @@ export interface GradeEntry {
     score: number;
     reasoning?: string;
     timestamp: string;
+    isSelected?: boolean;
+    electedAt?: string;
 }
 
 export interface ChatStep {
@@ -31,14 +33,14 @@ export interface ChatStep {
 }
 
 export interface Run {
-  id: string;
-  agentId: string;
-  agentName: string;
-  timestamp: string;
-  status: 'pass' | 'fail' | 'in_progress' | 'running';
-  score?: number;
-  steps?: ChatStep[];
-  totalSteps?: number;
+    id: string;
+    agentId: string;
+    agentName: string;
+    timestamp: string;
+    status: 'pass' | 'fail' | 'in_progress' | 'running';
+    score?: number;
+    steps?: ChatStep[];
+    totalSteps?: number;
 }
 
 export interface Criterion {
@@ -49,15 +51,15 @@ export interface Criterion {
 }
 
 export interface Template {
-  id: string;
-  name: string;
-  description?: string;
-  type: 'auto' | 'manual';
-  status: 'draft' | 'private' | 'public';
-  skills: string[];
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  criteria?: Criterion[];
-  lastUpdated: string;
+    id: string;
+    name: string;
+    description?: string;
+    type: 'auto' | 'manual';
+    status: 'draft' | 'private' | 'public';
+    skills: string[];
+    difficulty: 'Easy' | 'Medium' | 'Hard';
+    criteria?: Criterion[];
+    lastUpdated: string;
 }
 
 export interface Certificate {
