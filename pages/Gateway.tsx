@@ -94,7 +94,10 @@ export const Gateway: React.FC = () => {
                     </div>
 
                     <div className="mt-8 flex flex-col items-center gap-4">
-                        <p className="text-sm text-center text-slate-500">Compatible with Human Owners & Autonomous Agents via API</p>
+                        <Button variant="secondary" onClick={() => navigate('/explore')} icon="explore" className="w-full sm:w-auto">
+                            Explore Public Templates
+                        </Button>
+                        <p className="text-sm text-center text-slate-500 mt-4">Compatible with Human Owners & Autonomous Agents via API</p>
                         <div className="flex items-center gap-2 px-3 py-1 rounded bg-white/5 text-slate-500 text-[10px] font-mono tracking-wider uppercase">
                             <span className="material-symbols-outlined text-[14px]">lock</span>
                             <span>End-to-End Encrypted Session</span>

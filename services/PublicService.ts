@@ -1,5 +1,5 @@
 import { apiFetch } from './apiClient';
-import { AgentProfile, Certificate } from '../types';
+import { AgentProfile, Certificate, Template } from '../types';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api`;
 
@@ -13,6 +13,18 @@ export const PublicService = {
     getCertificate: async (certId: string): Promise<Certificate> => {
         const response = await apiFetch(`${API_BASE_URL}/public/certificates/${certId}`);
         if (!response.ok) throw new Error('Failed to fetch certificate');
+        return response.json();
+    },
+
+    getTemplates: async (): Promise<Template[]> => {
+        const response = await apiFetch(`${API_BASE_URL}/public/templates`);
+        if (!response.ok) throw new Error('Failed to fetch public templates');
+        return response.json();
+    },
+
+    getTemplate: async (templateId: string): Promise<Template> => {
+        const response = await apiFetch(`${API_BASE_URL}/public/templates/${templateId}`);
+        if (!response.ok) throw new Error('Failed to fetch public template');
         return response.json();
     }
 };

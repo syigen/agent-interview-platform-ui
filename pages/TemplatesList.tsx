@@ -5,6 +5,8 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchTemplates, deleteTemplate, duplicateTemplate, updateTemplate } from '../store/slices/templateSlice';
 import { addRun, updateRunStatus } from '../store/slices/runSlice';
 import { TemplateCard } from '../components/templates/TemplateCard';
+import { PublicTemplateCard } from '../components/templates/PublicTemplateCard';
+import { PublicService } from '../services/PublicService';
 import { RunDetailsPanel } from '../components/RunDetailsPanel';
 import { llmService } from '../services/LLMService';
 import { ChatStep, Run, Template } from '../types';
@@ -22,13 +24,41 @@ export const TemplatesList: React.FC = () => {
     const [filterText, setFilterText] = useState('');
     const [difficulty, setDifficulty] = useState<string>('All');
 
+    // Tab State
+    const [activeTab, setActiveTab] = useState<'my' | 'public'>('my');
+
+    // Public Templates State
+    const [publicTemplates, setPublicTemplates] = useState<Template[]>([]);
+    const [loadingPublic, setLoadingPublic] = useState(false);
+    const [errorPublic, setErrorPublic] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (activeTab === 'public' && publicTemplates.length === 0) {
+            const fetchPublic = async () => {
+                setLoadingPublic(true);
+                try {
+                    const data = await PublicService.getTemplates();
+                    setPublicTemplates(data);
+                    setErrorPublic(null);
+                } catch (err: any) {
+                    setErrorPublic(err.message || 'Failed to load public templates');
+                } finally {
+                    setLoadingPublic(false);
+                }
+            };
+            fetchPublic();
+        }
+    }, [activeTab, publicTemplates.length]);
+
     // Viewing active run state
     const [viewingRunId, setViewingRunId] = useState<string | null>(null);
 
     // Derived view of the current run object from store to ensure live updates
     const viewingRun = runs.find(r => r.id === viewingRunId) || null;
 
-    const filteredTemplates = templates.filter(t => {
+    const derivedTemplates = activeTab === 'my' ? templates : publicTemplates;
+
+    const filteredTemplates = derivedTemplates.filter(t => {
         const matchesText = t.name.toLowerCase().includes(filterText.toLowerCase()) ||
             t.skills.some(s => s.toLowerCase().includes(filterText.toLowerCase())) ||
             t.id.toLowerCase().includes(filterText.toLowerCase());
@@ -143,7 +173,7 @@ export const TemplatesList: React.FC = () => {
                             source: 'ai',
                             score: gradeResult.score,
                             reasoning: gradeResult.reasoning,
-                            timestamp: new Date().toLocaleTimeString()
+                            createdAt: new Date().toLocaleTimeString()
                         }]
                     };
                     chatSteps.push(gradeStep);
@@ -232,15 +262,35 @@ export const TemplatesList: React.FC = () => {
                     <h1 className="text-3xl md:text-4xl font-black leading-tight tracking-tight text-white">Interview Templates</h1>
                     <p className="text-slate-400 text-base font-normal max-w-2xl">Manage and create standardized evaluation frameworks for your AI agents.</p>
                 </div>
-                <Link to="/templates/create" className="w-full md:w-auto">
-                    <Button icon="add" className="w-full md:w-auto">Create Template</Button>
-                </Link>
+                {activeTab === 'my' && (
+                    <Link to="/templates/create" className="w-full md:w-auto">
+                        <Button icon="add" className="w-full md:w-auto">Create Template</Button>
+                    </Link>
+                )}
+            </div>
+
+            <div className="flex gap-6 border-b border-surface-border">
+                <button
+                    onClick={() => setActiveTab('my')}
+                    className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'my' ? 'text-primary' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                    My Templates
+                    {activeTab === 'my' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>}
+                </button>
+                <button
+                    onClick={() => setActiveTab('public')}
+                    className={`pb-3 text-sm font-bold transition-colors relative flex items-center gap-2 ${activeTab === 'public' ? 'text-primary' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                    <span className="material-symbols-outlined text-[16px]">public</span>
+                    Public Marketplace
+                    {activeTab === 'public' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>}
+                </button>
             </div>
 
             <Card className="p-5 flex flex-col gap-4">
                 <Input
                     icon="search"
-                    placeholder="Search templates by name, skill, or ID..."
+                    placeholder={`Search ${activeTab === 'my' ? 'your' : 'public'} templates by name, skill, or ID...`}
                     value={filterText}
                     onChange={e => setFilterText(e.target.value)}
                 />
@@ -269,57 +319,90 @@ export const TemplatesList: React.FC = () => {
                 </div>
             </Card>
 
-            <Card className="overflow-hidden bg-[#111722] md:bg-surface-dark">
-                {/* Desktop Table View */}
-                <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead>
-                            <tr className="bg-surface-border/50 border-b border-surface-border">
-                                <th className="px-6 py-4 font-semibold text-slate-400 uppercase tracking-wider text-xs">Template Name</th>
-                                <th className="px-6 py-4 font-semibold text-slate-400 uppercase tracking-wider text-xs">Targeted Skills</th>
-                                <th className="px-6 py-4 font-semibold text-slate-400 uppercase tracking-wider text-xs">Difficulty</th>
-                                <th className="px-6 py-4 font-semibold text-slate-400 uppercase tracking-wider text-xs">Last Updated</th>
-                                <th className="px-6 py-4 text-right"></th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-surface-border">
-                            {filteredTemplates.length > 0 ? (
-                                filteredTemplates.map(t => (
-                                    <TemplateCard
-                                        key={t.id}
-                                        template={t}
-                                        onDelete={(id) => dispatch(deleteTemplate(id))}
-                                        onDuplicate={handleDuplicate}
-                                        onStatusChange={(id, status) => dispatch(updateTemplate({ id, data: { status } }))}
-                                        onSimulate={handleSimulateStream}
-                                    />
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <span className="material-symbols-outlined text-3xl opacity-50">search_off</span>
-                                            <p>No templates found matching your search.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+            {errorPublic && activeTab === 'public' && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg">
+                    Error loading public templates: {errorPublic}
                 </div>
+            )}
 
-                {/* Mobile View */}
-                <div className="md:hidden p-4">
-                    {filteredTemplates.length > 0 ? (
-                        filteredTemplates.map(renderMobileTemplate)
+            {activeTab === 'my' ? (
+                <Card className="overflow-hidden bg-[#111722] md:bg-surface-dark">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead>
+                                <tr className="bg-surface-border/50 border-b border-surface-border">
+                                    <th className="px-6 py-4 font-semibold text-slate-400 uppercase tracking-wider text-xs">Template Name</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-400 uppercase tracking-wider text-xs">Targeted Skills</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-400 uppercase tracking-wider text-xs">Difficulty</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-400 uppercase tracking-wider text-xs">Last Updated</th>
+                                    <th className="px-6 py-4 text-right"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-surface-border">
+                                {filteredTemplates.length > 0 ? (
+                                    filteredTemplates.map(t => (
+                                        <TemplateCard
+                                            key={t.id}
+                                            template={t}
+                                            onDelete={(id) => dispatch(deleteTemplate(id))}
+                                            onDuplicate={handleDuplicate}
+                                            onStatusChange={(id, status) => dispatch(updateTemplate({ id, data: { status } }))}
+                                            onSimulate={handleSimulateStream}
+                                        />
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <span className="material-symbols-outlined text-3xl opacity-50">search_off</span>
+                                                <p>No templates found matching your search.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile View */}
+                    <div className="md:hidden p-4">
+                        {filteredTemplates.length > 0 ? (
+                            filteredTemplates.map(renderMobileTemplate)
+                        ) : (
+                            <div className="text-center py-12 text-slate-500">
+                                <span className="material-symbols-outlined text-3xl opacity-50 mb-2">search_off</span>
+                                <p>No templates found matching your search.</p>
+                            </div>
+                        )}
+                    </div>
+                </Card>
+            ) : (
+                <div className="mt-2">
+                    {loadingPublic ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-4 bg-surface-dark border border-surface-border rounded-xl">
+                            <div className="animate-spin size-8 border-2 border-primary border-t-transparent rounded-full"></div>
+                            <span className="text-slate-400 font-medium">Loading templates...</span>
+                        </div>
+                    ) : filteredTemplates.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {filteredTemplates.map(t => (
+                                <PublicTemplateCard key={t.id} template={t} />
+                            ))}
+                        </div>
                     ) : (
-                        <div className="text-center py-12 text-slate-500">
-                            <span className="material-symbols-outlined text-3xl opacity-50 mb-2">search_off</span>
-                            <p>No templates found matching your search.</p>
+                        <div className="flex flex-col items-center justify-center text-center py-16 bg-surface-dark border border-surface-border rounded-xl">
+                            <div className="size-16 rounded-full bg-surface-border/30 flex items-center justify-center mb-4 text-slate-400">
+                                <span className="material-symbols-outlined text-3xl">search_off</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">No templates found</h3>
+                            <p className="text-slate-400 max-w-sm text-sm">
+                                We couldn't find any public templates matching your search criteria.
+                            </p>
                         </div>
                     )}
                 </div>
-            </Card>
+            )}
         </div>
     );
 };

@@ -19,9 +19,10 @@ import { CertificateDetail } from './pages/CertificateDetail';
 import { LoginPage } from './pages/LoginPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
-import AgentInterviews from './pages/AgentInterviews';
 import PublicAgentProfile from './pages/PublicAgentProfile';
 import PublicCertificate from './pages/PublicCertificate';
+import { PublicTemplates } from './pages/PublicTemplates';
+import { PublicTemplateDetails } from './pages/PublicTemplateDetails';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const AppContent: React.FC = () => {
@@ -50,6 +51,8 @@ const AppContent: React.FC = () => {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/public/agents/:id" element={<PublicAgentProfile />} />
       <Route path="/public/certificates/:id" element={<PublicCertificate />} />
+      <Route path="/explore" element={<PublicTemplates />} />
+      <Route path="/explore/:id" element={<PublicTemplateDetails />} />
       <Route path="/interview" element={<Interview />} />
 
       {/* Protected Routes */}
