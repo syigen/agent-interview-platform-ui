@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { PublicService } from '../services/PublicService';
+import { AgentInterviewService } from '../services/AgentInterviewService';
 import { Template } from '../types';
-import { Button } from '../components/ui/Common';
+import { Button, Input } from '../components/ui/Common';
+import { useAppSelector } from '../store/hooks';
 
 export const PublicTemplateDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -10,6 +12,16 @@ export const PublicTemplateDetails: React.FC = () => {
     const [template, setTemplate] = useState<Template | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Auth state for prompt generation
+    const isAuthenticated = useAppSelector((state) => !!state.auth.session);
+
+    // Prompt generator state
+    const [showGenerator, setShowGenerator] = useState(false);
+    const [genLoading, setGenLoading] = useState(false);
+    const [generatedPrompt, setGeneratedPrompt] = useState<{ token: string; prompt: string } | null>(null);
+    const [copyToast, setCopyToast] = useState(false);
+    const [copyTokenToast, setCopyTokenToast] = useState(false);
 
     useEffect(() => {
         const fetchTemplate = async () => {
@@ -31,6 +43,50 @@ export const PublicTemplateDetails: React.FC = () => {
 
     const handleConnectAgent = () => {
         navigate('/session', { state: { prefillInstruction: `Use template: ${template?.name} (ID: ${template?.id})` } });
+    };
+
+    const handleToggleGenerator = () => {
+        if (!isAuthenticated) {
+            navigate('/login');
+            return;
+        }
+        setShowGenerator(!showGenerator);
+    };
+
+    const handleGenerateInvite = async () => {
+        if (!template) return;
+        setGenLoading(true);
+        try {
+            const result = await AgentInterviewService.generateInvitePrompt(template.id);
+            setGeneratedPrompt(result);
+        } catch (e: any) {
+            console.error("Failed to generate invite", e);
+            alert(e.message || "Failed to generate invite. Please make sure you are logged in.");
+        } finally {
+            setGenLoading(false);
+        }
+    };
+
+    const handleCopyPrompt = async () => {
+        if (!generatedPrompt) return;
+        try {
+            await navigator.clipboard.writeText(generatedPrompt.prompt.trim());
+            setCopyToast(true);
+            setTimeout(() => setCopyToast(false), 2000);
+        } catch (e) {
+            console.error("Failed to copy", e);
+        }
+    };
+
+    const handleCopyToken = async () => {
+        if (!generatedPrompt) return;
+        try {
+            await navigator.clipboard.writeText(generatedPrompt.token);
+            setCopyTokenToast(true);
+            setTimeout(() => setCopyTokenToast(false), 2000);
+        } catch (e) {
+            console.error("Failed to copy token", e);
+        }
     };
 
     if (loading) {
@@ -63,7 +119,11 @@ export const PublicTemplateDetails: React.FC = () => {
                 </Link>
                 <div className="flex items-center gap-4">
                     <Link to="/explore" className="text-sm font-medium text-slate-300 hover:text-white transition-colors mr-2">Explore</Link>
-                    <Link to="/login" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Sign In</Link>
+                    {!isAuthenticated ? (
+                        <Link to="/login" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Sign In</Link>
+                    ) : (
+                        <Link to="/dashboard" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Dashboard</Link>
+                    )}
                 </div>
             </header>
 
@@ -87,14 +147,23 @@ export const PublicTemplateDetails: React.FC = () => {
                             </p>
                         </div>
 
-                        <div className="flex-shrink-0 flex flex-col items-stretch md:items-end gap-3">
-                            <button
-                                onClick={handleConnectAgent}
-                                className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors shadow-md shadow-blue-900/20 w-full md:w-auto"
-                            >
-                                Connect Agent
-                            </button>
-                            <span className="text-[10px] text-slate-500 text-center md:text-right">Template ID: {template.id.split('-')[0]}</span>
+                        <div className="flex-shrink-0 flex flex-col items-stretch md:items-end gap-3 w-full md:w-auto">
+                            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                                <button
+                                    onClick={handleToggleGenerator}
+                                    className="bg-surface-dark hover:bg-surface-border text-white text-sm font-bold py-2.5 px-4 rounded-lg transition-colors border border-surface-border flex items-center justify-center gap-2 "
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">bolt</span>
+                                    {showGenerator ? 'Close Generator' : 'Generate Prompt'}
+                                </button>
+                                <button
+                                    onClick={handleConnectAgent}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors shadow-md shadow-blue-900/20"
+                                >
+                                    Connect Agent
+                                </button>
+                            </div>
+                            <span className="text-[10px] text-slate-500 text-center md:text-right w-full">Template ID: {template.id.split('-')[0]}</span>
                         </div>
                     </div>
 
@@ -107,6 +176,107 @@ export const PublicTemplateDetails: React.FC = () => {
                         ))}
                     </div>
                 </div>
+
+                {/* Generator Section */}
+                {showGenerator && (
+                    <div className="bg-surface-dark border border-surface-border rounded-2xl p-6 md:p-8 shadow-xl animate-fade-in-up flex flex-col lg:flex-row gap-8">
+                        <div className="flex-1 flex flex-col gap-6">
+                            <h2 className="text-xl font-bold text-white">Generate Access Prompt</h2>
+                            <div className="flex flex-col gap-4">
+                                <div>
+                                    <label className="text-sm font-semibold text-slate-300 mb-2 block">Evaluation Template</label>
+                                    <div className="w-full bg-[#111722] border border-surface-border text-slate-400 text-sm rounded-lg p-3.5 opacity-80 cursor-not-allowed flex items-center justify-between">
+                                        <span>{template.name}</span>
+                                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded
+                                            ${template.difficulty === 'Hard' ? 'text-red-400 bg-red-400/10' :
+                                                template.difficulty === 'Medium' ? 'text-yellow-400 bg-yellow-400/10' :
+                                                    'text-emerald-400 bg-emerald-400/10'}`}>
+                                            {template.difficulty}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <Input label="Expiration" placeholder="24 Hours" disabled />
+                                    <Input label="Max Attempts" placeholder="Unlimited" disabled />
+                                </div>
+                                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-xs text-blue-300">
+                                    Generates a cryptographically signed invite token linked to your admin account.
+                                </div>
+                                <Button
+                                    className="w-full mt-2"
+                                    icon="bolt"
+                                    onClick={handleGenerateInvite}
+                                    disabled={genLoading}
+                                >
+                                    {genLoading ? 'Generating...' : 'Generate Prompt'}
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="flex-1 flex flex-col gap-6">
+                            {!generatedPrompt ? (
+                                <div className="h-full flex items-center justify-center text-slate-500 text-sm italic border-2 border-dashed border-surface-border rounded-2xl min-h-[200px]">
+                                    Click "Generate Prompt" to see the instructions and token here.
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-2xl p-6">
+                                        <h3 className="text-white font-bold mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-indigo-400">info</span> How it works</h3>
+                                        <ul className="space-y-2 text-sm text-indigo-200/80">
+                                            <li>• The prompt includes registration instructions and a signed token.</li>
+                                            <li>• Send this to your agent (or use it in your test script).</li>
+                                        </ul>
+                                    </div>
+                                    <div className="bg-black/40 border border-primary/50 rounded-2xl p-0 overflow-hidden shadow-2xl shadow-primary/10">
+                                        <div className="bg-black/50 p-4 border-b border-white/5 flex justify-between items-center">
+                                            <span className="text-xs font-bold text-primary uppercase flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Generated Invite</span>
+                                        </div>
+                                        <div className="p-5 flex flex-col gap-4">
+                                            {/* Token Section */}
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex justify-between items-center">
+                                                    <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Invite Token</label>
+                                                    <span className="text-[10px] text-emerald-500 font-mono">Status: Active</span>
+                                                </div>
+                                                <div className="flex gap-2">
+
+                                                    <Input value={generatedPrompt.token} readOnly />
+
+                                                    <Button
+                                                        variant="secondary"
+                                                        icon={copyTokenToast ? 'check' : 'content_copy'}
+                                                        onClick={handleCopyToken}
+                                                        className="shrink-0 ml-1"
+                                                        title="Copy Token"
+                                                    >
+                                                        {copyTokenToast ? 'Copied' : 'Copy'}
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="h-px bg-white/5 w-full my-1"></div>
+
+                                            {/* Prompt Section */}
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Full Instructions</label>
+                                                <div className="font-mono text-[11px] leading-relaxed text-slate-400 break-all bg-[#0d1117] p-4 rounded-lg border border-white/5 whitespace-pre-wrap max-h-[160px] overflow-y-auto">
+                                                    {generatedPrompt.prompt}
+                                                </div>
+                                                <Button
+                                                    variant="secondary"
+                                                    icon={copyToast ? 'check' : 'content_copy'}
+                                                    className="w-full mt-1"
+                                                    onClick={handleCopyPrompt}
+                                                >
+                                                    {copyToast ? 'Copied Instructions!' : 'Copy Full Instructions'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Criteria Section */}
                 <div className="flex flex-col gap-4">
@@ -152,3 +322,4 @@ export const PublicTemplateDetails: React.FC = () => {
         </div>
     );
 };
+
