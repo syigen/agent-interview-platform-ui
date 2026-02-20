@@ -3,9 +3,9 @@ export class LLMService {
     private baseUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/ai`;
 
     /**
-     * Generates evaluation criteria based on a template profile.
+     * Generates evaluation criteria based on a template profile and optional AI parameters.
      */
-    async generateCriteria(data: { name: string, description: string, skills: string[], difficulty: string }): Promise<any[]> {
+    async generateCriteria(data: { name: string, description: string, skills: string[], difficulty: string, count?: number, focus?: string, model?: string, extra_info?: string }): Promise<any[]> {
         try {
             const response = await fetch(`${this.baseUrl}/generate-criteria`, {
                 method: 'POST',

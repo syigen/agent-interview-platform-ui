@@ -80,17 +80,14 @@ export const TemplateEditor: React.FC = () => {
             }
         }
         if (stepIdx === 2) {
-            // If manual, enforce at least one criteria
-            if (data.type === 'manual') {
-                if (!data.criteria || data.criteria.length === 0) {
-                    newErrors.criteria = "Please add at least one evaluation criterion.";
+            if (!data.criteria || data.criteria.length === 0) {
+                newErrors.criteria = "Please add at least one evaluation criterion, either manually or via AI generation.";
+                isValid = false;
+            } else {
+                const incomplete = data.criteria.some(c => !c.prompt?.trim() || !c.expected?.trim());
+                if (incomplete) {
+                    newErrors.criteria = "All test cases must have a prompt and expected response criteria.";
                     isValid = false;
-                } else {
-                    const incomplete = data.criteria.some(c => !c.prompt?.trim() || !c.expected?.trim());
-                    if (incomplete) {
-                        newErrors.criteria = "All test cases must have a prompt and expected response criteria.";
-                        isValid = false;
-                    }
                 }
             }
         }
@@ -160,14 +157,18 @@ export const TemplateEditor: React.FC = () => {
         navigate('/templates');
     }
 
-    const generateAICriteria = async () => {
+    const generateAICriteria = async (config?: { focus: string, count: number, model: string, extraInfo: string }) => {
         setIsGenerating(true);
         try {
             const criteria = await llmService.generateCriteria({
                 name: data.name,
                 description: data.description || '',
                 skills: data.skills,
-                difficulty: data.difficulty
+                difficulty: data.difficulty,
+                count: config?.count || 5,
+                focus: config?.focus,
+                model: config?.model,
+                extra_info: config?.extraInfo
             });
 
             if (criteria && Array.isArray(criteria)) {
@@ -177,9 +178,7 @@ export const TemplateEditor: React.FC = () => {
                     expected: c.expected,
                     minScore: c.minScore || 75
                 }));
-                updateData('criteria', newCriteria);
-                // Switch to manual to show the generated items
-                updateData('type', 'manual');
+                updateData('criteria', [...data.criteria, ...newCriteria]);
 
                 // Clear any criteria errors
                 if (errors.criteria) {
@@ -204,10 +203,7 @@ export const TemplateEditor: React.FC = () => {
                 <Link to="/templates" className="inline-flex items-center text-slate-500 hover:text-white mb-4 transition-colors">
                     <span className="material-symbols-outlined text-lg mr-1">arrow_back</span> Back to Templates
                 </Link>
-                <h1 className="text-3xl font-black text-white mb-2">{isEditMode ? 'Edit Template' : 'Create Evaluation Template'}</h1>
-                <p className="text-slate-400">
-                    {isEditMode ? `Modifying template parameters for ${data.name || 'selected item'}.` : 'Configure the parameters for the new agent assessment module.'}
-                </p>
+                <h1 className="text-[24px] font-bold text-white tracking-tight">AI Criteria Builder Dashboard</h1>
             </div>
 
             <Card className="w-full max-w-[800px] overflow-hidden flex flex-col min-h-[600px]">
@@ -248,37 +244,7 @@ export const TemplateEditor: React.FC = () => {
                                     <span className="material-symbols-outlined text-primary">tune</span> Parameters
                                 </h3>
                                 <div className="ml-8 space-y-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-300 mb-2">Construction Method</label>
-                                        <div className="grid md:grid-cols-2 gap-4">
-                                            <div
-                                                onClick={() => updateData('type', 'auto')}
-                                                className={`p-4 rounded-lg border cursor-pointer transition-all ${data.type === 'auto' ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-surface-border bg-background-dark hover:bg-surface-border'}`}
-                                            >
-                                                <div className="flex justify-between mb-2">
-                                                    <span className={`material-symbols-outlined text-2xl ${data.type === 'auto' ? 'text-primary' : 'text-slate-400'}`}>smart_toy</span>
-                                                    <div className={`size-5 rounded-full border-2 flex items-center justify-center ${data.type === 'auto' ? 'border-primary bg-primary' : 'border-surface-border'}`}>
-                                                        {data.type === 'auto' && <div className="size-2 bg-white rounded-full"></div>}
-                                                    </div>
-                                                </div>
-                                                <p className="font-semibold text-white">AI-Generated</p>
-                                                <p className="text-xs text-slate-400 mt-1">Automatically generate questions based on skill tags.</p>
-                                            </div>
-                                            <div
-                                                onClick={() => updateData('type', 'manual')}
-                                                className={`p-4 rounded-lg border cursor-pointer transition-all ${data.type === 'manual' ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-surface-border bg-background-dark hover:bg-surface-border'}`}
-                                            >
-                                                <div className="flex justify-between mb-2">
-                                                    <span className={`material-symbols-outlined text-2xl ${data.type === 'manual' ? 'text-primary' : 'text-slate-400'}`}>construction</span>
-                                                    <div className={`size-5 rounded-full border-2 flex items-center justify-center ${data.type === 'manual' ? 'border-primary bg-primary' : 'border-surface-border'}`}>
-                                                        {data.type === 'manual' && <div className="size-2 bg-white rounded-full"></div>}
-                                                    </div>
-                                                </div>
-                                                <p className="font-semibold text-white">Manual Construction</p>
-                                                <p className="text-xs text-slate-400 mt-1">Manually input specific questions and test cases.</p>
-                                            </div>
-                                        </div>
-                                    </div>
+
 
                                     <SkillSelector
                                         skills={data.skills}
@@ -304,66 +270,31 @@ export const TemplateEditor: React.FC = () => {
                             </div>
                         </div>
                     )}
-
                     {step === 2 && (
                         <div className="animate-fade-in-up">
-                            {data.type === 'auto' ? (
-                                <div className="text-center py-16">
-                                    <div className="inline-flex items-center justify-center p-4 rounded-full bg-primary/10 text-primary mb-4 animate-pulse">
-                                        <span className="material-symbols-outlined text-4xl">auto_awesome</span>
-                                    </div>
-                                    <h3 className="text-xl font-bold text-white mb-2">AI Generation Enabled</h3>
-                                    <p className="text-slate-400 max-w-md mx-auto mb-6">Based on the skills <strong>{data.skills.join(', ')}</strong>, the system will dynamically generate evaluation questions.</p>
+                            <CriteriaBuilder
+                                criteria={data.criteria || []}
+                                onChange={c => {
+                                    // Update state directly to bypass automatic error clearing for complex validation
+                                    setData(prev => ({ ...prev, criteria: c }));
 
-                                    <div className="bg-surface-dark p-4 rounded-lg border border-surface-border max-w-sm mx-auto text-left relative overflow-hidden">
-                                        {isGenerating && (
-                                            <div className="absolute inset-0 bg-surface-dark/95 flex flex-col items-center justify-center z-10 backdrop-blur-sm">
-                                                <span className="material-symbols-outlined text-primary text-4xl animate-spin">sync</span>
-                                                <p className="text-xs font-bold text-primary mt-2 uppercase tracking-widest">Generating...</p>
-                                            </div>
-                                        )}
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Configuration Preview</p>
-                                        <div className="space-y-2 text-sm text-slate-300">
-                                            <div className="flex justify-between"><span>Focus:</span> <span className="text-white">{data.skills.length > 0 ? data.skills[0] : 'General'}</span></div>
-                                            <div className="flex justify-between"><span>Count:</span> <span className="text-white">5 Questions</span></div>
-                                            <div className="flex justify-between"><span>Model:</span> <span className="text-white">Gemini 3.0 Flash</span></div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-8 flex justify-center gap-4">
-                                        <Button
-                                            onClick={generateAICriteria}
-                                            disabled={isGenerating}
-                                            icon={isGenerating ? undefined : "auto_awesome"}
-                                            className={isGenerating ? "opacity-80" : ""}
-                                        >
-                                            {isGenerating ? 'Designing Protocol...' : 'Generate Criteria Now'}
-                                        </Button>
-                                    </div>
-                                    <p className="text-xs text-slate-500 mt-4">This will generate a static list of questions that you can edit.</p>
-                                </div>
-                            ) : (
-                                <CriteriaBuilder
-                                    criteria={data.criteria || []}
-                                    onChange={c => {
-                                        // Update state directly to bypass automatic error clearing for complex validation
-                                        setData(prev => ({ ...prev, criteria: c }));
-
-                                        // Manually handle error clearing: ONLY clear if all items are valid and at least one exists
-                                        if (errors.criteria) {
-                                            const incomplete = c.some(item => !item.prompt?.trim() || !item.expected?.trim());
-                                            if (!incomplete && c.length > 0) {
-                                                setErrors(prev => {
-                                                    const newErrors = { ...prev };
-                                                    delete newErrors.criteria;
-                                                    return newErrors;
-                                                });
-                                            }
+                                    // Manually handle error clearing: ONLY clear if all items are valid and at least one exists
+                                    if (errors.criteria) {
+                                        const incomplete = c.some(item => !item.prompt?.trim() || !item.expected?.trim());
+                                        if (!incomplete && c.length > 0) {
+                                            setErrors(prev => {
+                                                const newErrors = { ...prev };
+                                                delete newErrors.criteria;
+                                                return newErrors;
+                                            });
                                         }
-                                    }}
-                                    error={errors.criteria}
-                                />
-                            )}
+                                    }
+                                }}
+                                error={errors.criteria}
+                                onGenerateAI={generateAICriteria}
+                                isGenerating={isGenerating}
+                                skills={data.skills}
+                            />
                         </div>
                     )}
 
@@ -384,9 +315,9 @@ export const TemplateEditor: React.FC = () => {
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Type</label>
-                                    <p className="text-white font-medium capitalize flex items-center gap-2">
-                                        {data.type === 'auto' ? <span className="material-symbols-outlined text-primary text-sm">smart_toy</span> : <span className="material-symbols-outlined text-primary text-sm">construction</span>}
-                                        {data.type}
+                                    <p className="text-white font-medium flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-primary text-sm">construction</span>
+                                        Custom
                                     </p>
                                 </div>
                                 <div className="space-y-1">
